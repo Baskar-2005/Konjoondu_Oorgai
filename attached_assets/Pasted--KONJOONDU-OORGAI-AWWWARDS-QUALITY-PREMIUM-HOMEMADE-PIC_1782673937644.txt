@@ -1,0 +1,523 @@
+# KONJOONDU OORGAI — AWWWARDS QUALITY PREMIUM HOMEMADE PICKLE BRAND WEBSITE
+
+You are an Award-Winning Creative Director, Brand Strategist, Motion Designer, Food Stylist, UI/UX Designer, and Senior Full Stack Developer.
+
+Design a world-class, **soft**, **warm**, **pleasant**, **professional**, and **emotionally engaging** website for **Konjoondu Oorgai**, a premium homemade pickle brand.
+
+This should **NOT** look like a grocery or supermarket website.
+
+It should tell the story of tradition, family recipes, handcrafted quality, and authentic South Indian flavors with elegant animations and premium interactions.
+
+Take inspiration from:
+
+* Paper Boat
+* The Whole Truth
+* Aesop
+* Tata Sampann
+* Apple
+* Muji
+* Awwwards Food Websites
+* Minimal Scandinavian Editorial Design
+
+The website should instantly evoke
+
+🏡 Homemade
+
+❤️ Family
+
+🌿 Natural
+
+🥭 Authentic
+
+✨ Premium
+
+🌞 Warm
+
+---
+
+# IMPORTANT
+
+Install and use UI UX Pro Max
+
+```bash
+npm install -g ui-ux-pro-max-cli
+
+uipro init --ai codex
+```
+
+Also use
+
+* React
+* TypeScript
+* TailwindCSS
+* Framer Motion
+* GSAP
+* Lenis
+* SwiperJS
+* React Hook Form
+* Lucide React
+* React Icons
+
+---
+
+# TYPOGRAPHY
+
+Use **Poppins**
+
+Elegant
+
+Comfortable
+
+Editorial
+
+Modern
+
+Readable
+
+Large warm headings
+
+---
+
+# DESIGN STYLE
+
+Warm
+
+Organic
+
+Soft
+
+Minimal
+
+Premium
+
+Editorial
+
+Glassmorphism
+
+Natural
+
+Indian Heritage with Modern UI
+
+---
+
+# COLOR PALETTE
+
+Cream White — #FFF9F3
+
+Soft Sand — #F4EBDD
+
+Mango Yellow — #E8B64A
+
+Pickle Red — #B53A2E
+
+Olive Green — #6B8E4A
+
+Clay Brown — #8B5E3C
+
+Dark Cocoa — #2D241F
+
+Glass Cards
+
+rgba(255,255,255,0.75)
+
+Very soft shadows
+
+Natural gradients
+
+---
+
+# HERO SECTION ⭐⭐⭐⭐⭐
+
+Create an emotional hero.
+
+Background
+
+A rustic South Indian kitchen with morning sunlight streaming through wooden windows.
+
+Traditional ceramic pickle jars arranged on a wooden shelf.
+
+Fresh mangoes, lemons, garlic, chilies, curry leaves, mustard seeds, and gingelly oil beautifully placed on a handcrafted wooden table.
+
+Soft steam rises from freshly cooked rice beside a bowl of pickle.
+
+Headline
+
+## Every Jar Holds a Family Tradition.
+
+Subheading
+
+Handcrafted homemade pickles prepared with authentic recipes, premium ingredients, and the warmth of home.
+
+Buttons
+
+Explore Pickles
+
+Shop Now
+
+Our Story
+
+Floating Cards
+
+⭐ 5.0 Customer Rating
+
+🥭 Homemade Recipes
+
+🌿 No Artificial Preservatives
+
+❤️ Crafted with Love
+
+---
+
+# HERO ANIMATION ⭐⭐⭐⭐⭐
+
+Website opens
+
+↓
+
+Morning sunlight slowly enters the kitchen.
+
+↓
+
+Glass pickle jars catch warm reflections.
+
+↓
+
+Steam rises from the rice bowl.
+
+↓
+
+Tiny spice particles float.
+
+↓
+
+Headline reveals word by word.
+
+↓
+
+CTA buttons fade in.
+
+↓
+
+Pickle jars gently slide into place.
+
+Everything should feel peaceful and nostalgic.
+
+---
+
+# PREMIUM AMBIENT ANIMATIONS ⭐⭐⭐⭐⭐
+
+Instead of generic particles, use food-inspired ambient effects.
+
+Include
+
+🥭 Mango leaves gently drifting
+
+🌿 Curry leaves floating softly
+
+✨ Tiny mustard seeds floating in warm light
+
+🌶 Small red chili flakes drifting occasionally
+
+🫙 Glass jar reflections moving slowly
+
+🍲 Soft aroma waves rising
+
+☀️ Warm sunlight rays changing subtly
+
+🌬 Gentle breeze moving hanging herbs
+
+Everything should remain subtle and elegant.
+
+---
+
+# PRODUCT SHOWCASE ⭐⭐⭐⭐⭐
+
+Premium glass cards with soft hover effects.
+
+Categories
+
+Mango Pickle
+
+Lemon Pickle
+
+Garlic Pickle
+
+Mixed Vegetable Pickle
+
+Vaalai Thokku
+
+Gongura Pickle
+
+Tomato Thokku
+
+Citron Pickle
+
+Each product card contains
+
+Large product image
+
+Short story
+
+Ingredients
+
+Spice level
+
+Available sizes
+
+Price
+
+Add to Cart
+
+Hover
+
+Jar rotates slightly.
+
+Light reflection moves.
+
+Soft shadow lifts.
+
+---
+
+# PRODUCT DETAILS
+
+Large image gallery
+
+360° jar view
+
+Ingredients
+
+Traditional preparation process
+
+Shelf life
+
+Best food pairing
+
+Nutritional details
+
+Storage instructions
+
+Customer reviews
+
+---
+
+# OUR TRADITION
+
+Animated storytelling timeline.
+
+Fresh Ingredients
+
+↓
+
+Cleaning
+
+↓
+
+Traditional Mixing
+
+↓
+
+Sun Curing
+
+↓
+
+Natural Resting
+
+↓
+
+Quality Check
+
+↓
+
+Packing
+
+↓
+
+Delivered to Your Home
+
+Each step reveals with handcrafted illustrations.
+
+---
+
+# WHY KONJOONDU OORGAI
+
+Premium cards
+
+Homemade Taste
+
+Family Recipes
+
+Small Batch Production
+
+No Artificial Colours
+
+Premium Ingredients
+
+Traditional Methods
+
+Hygienic Preparation
+
+Loved by Families
+
+---
+
+# RECIPE PAIRING
+
+Each pickle recommends dishes.
+
+Example
+
+Mango Pickle
+
+↓
+
+Curd Rice
+
+Dosa
+
+Idli
+
+Chapati
+
+Sambar Rice
+
+Lemon Rice
+
+Interactive recipe cards.
+
+---
+
+# CUSTOMER LOVE
+
+Elegant testimonials.
+
+Warm handwritten-style quote cards.
+
+Customer photos.
+
+Google-inspired review slider.
+
+---
+
+# GALLERY
+
+Pinterest-style masonry.
+
+Kitchen
+
+Ingredients
+
+Production
+
+Packaging
+
+Customers
+
+Traditional recipes
+
+---
+
+# DEALER & BULK ORDERS
+
+Dealer enquiry form.
+
+Bulk pricing.
+
+Export enquiry.
+
+Private label opportunities.
+
+---
+
+# CONTACT
+
+Interactive map
+
+WhatsApp
+
+Call
+
+Email
+
+Factory location
+
+Dealer support
+
+---
+
+# FOOTER
+
+Minimal warm footer.
+
+Quick links
+
+Products
+
+Recipes
+
+About
+
+Contact
+
+Instagram
+
+Newsletter
+
+---
+
+# MICRO INTERACTIONS
+
+• Pickle jars catch moving light reflections.
+
+• Curry leaves drift occasionally across sections.
+
+• Steam rises gently from food visuals.
+
+• Buttons have soft ripple animations.
+
+• Product cards lift naturally.
+
+• Glass jars rotate slightly on hover.
+
+• Warm sunlight shifts subtly while scrolling.
+
+• Smooth Framer Motion transitions throughout.
+
+---
+
+# EXCLUSIVE FEATURES ⭐⭐⭐⭐⭐
+
+Interactive Pickle Flavor Wheel
+
+Recipe Pairing Assistant
+
+AI Pickle Recommendation Based on Food Choice
+
+Gift Box Builder
+
+Family Recipe Story Section
+
+360° Product Viewer
+
+Dealer Portal
+
+Bulk Order Calculator
+
+Download Product Catalogue
+
+Floating WhatsApp Ordering
+
+Glassmorphism UI
+
+Dark / Light Theme
+
+SEO Optimized
+
+Accessibility 100
+
+Performance 95+
+
+---
+
+# FINAL GOAL
+
+Create a website that feels like entering a grandmother's kitchen on a peaceful Sunday morning, where homemade pickles are lovingly prepared using recipes passed down through generations. Every animation, transition, and interaction should evoke warmth, authenticity, nostalgia, and premium craftsmanship, making Konjoondu Oorgai stand out as a trusted homemade pickle brand with an unforgettable digital experience worthy of an Awwwards showcase.

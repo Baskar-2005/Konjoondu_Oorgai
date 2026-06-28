@@ -1,0 +1,27 @@
+kind = "web"
+previewPath = "/"
+title = "Konjoondu Oorgai"
+version = "1.0.0"
+id = "artifacts/konjoondu-oorgai"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 23741
+
+[services.development]
+run = "pnpm --filter @workspace/konjoondu-oorgai run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/konjoondu-oorgai", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/konjoondu-oorgai/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "23741"
+BASE_PATH = "/"
