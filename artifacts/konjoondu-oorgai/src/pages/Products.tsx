@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, useInView, AnimatePresence } from 'framer-motion';
-import { Flame, ShoppingCart, Search, SlidersHorizontal, Plus, Minus, Eye } from 'lucide-react';
+import { Flame, ShoppingCart, Search, SlidersHorizontal, Plus, Minus, Eye, Clock } from 'lucide-react';
 import { products, categories } from '@/data/products';
 import type { Product, ProductSize } from '@/data/products';
 import { useCart } from '@/context/CartContext';
@@ -9,10 +9,43 @@ import Navigation from '@/components/Navigation';
 import ProductModal from '@/components/ProductModal';
 import Footer from '@/components/Footer';
 
+const RECENTLY_VIEWED_KEY = 'ko_recently_viewed';
+const MAX_RECENT = 4;
+
+function getRecentlyViewed(): number[] {
+  try {
+    const raw = localStorage.getItem(RECENTLY_VIEWED_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+function addRecentlyViewed(id: number) {
+  try {
+    const current = getRecentlyViewed().filter(i => i !== id);
+    const updated = [id, ...current].slice(0, MAX_RECENT);
+    localStorage.setItem(RECENTLY_VIEWED_KEY, JSON.stringify(updated));
+  } catch {
+    // ignore
+  }
+}
+
 export default function ProductsPage() {
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [search, setSearch] = useState('');
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [recentIds, setRecentIds] = useState<number[]>([]);
+
+  // Load recently viewed on mount and refresh when modal closes
+  useEffect(() => {
+    setRecentIds(getRecentlyViewed());
+  }, [selectedProduct]);
+
+  function openProduct(product: Product) {
+    addRecentlyViewed(product.id);
+    setSelectedProduct(product);
+  }
 
   const filtered = products.filter(p => {
     const matchCat = selectedCategory === 'All' || p.category === selectedCategory;
@@ -21,6 +54,10 @@ export default function ProductsPage() {
       p.tag.toLowerCase().includes(search.toLowerCase());
     return matchCat && matchSearch;
   });
+
+  const recentProducts = recentIds
+    .map(id => products.find(p => p.id === id))
+    .filter(Boolean) as Product[];
 
   return (
     <ThemeProvider defaultTheme="light">
@@ -59,7 +96,7 @@ export default function ProductsPage() {
 
         {/* Filters bar */}
         <div className="sticky top-0 z-40 border-b shadow-sm"
-          style={{ background: 'var(--background)', borderColor: 'rgba(139,94,60,0.12)' }}>
+          style={{ background: 'hsl(var(--background))', borderColor: 'rgba(139,94,60,0.12)' }}>
           <div className="container mx-auto px-6 py-3.5">
             <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
               <div className="relative flex-1 max-w-xs">
@@ -87,7 +124,7 @@ export default function ProductsPage() {
           </div>
         </div>
 
-        {/* Grid */}
+        {/* Main grid */}
         <main className="container mx-auto px-6 py-10">
           {filtered.length === 0 ? (
             <div className="text-center py-24 text-muted-foreground">
@@ -103,12 +140,40 @@ export default function ProductsPage() {
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                 {filtered.map((product, i) => (
                   <ProductCard key={product.id} product={product} index={i}
-                    onViewDetails={() => setSelectedProduct(product)} />
+                    onViewDetails={() => openProduct(product)} />
                 ))}
               </div>
             </>
           )}
         </main>
+
+        {/* Recently Viewed */}
+        {recentProducts.length > 0 && (
+          <section className="border-t" style={{ borderColor: 'rgba(139,94,60,0.12)' }}>
+            <div className="container mx-auto px-6 py-12">
+              <div className="flex items-center gap-3 mb-8">
+                <div style={{
+                  width: 36, height: 36, borderRadius: 10,
+                  background: 'rgba(181,58,46,0.1)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}>
+                  <Clock size={18} color="hsl(4,60%,44%)" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-bold">Recently Viewed</h2>
+                  <p className="text-xs text-muted-foreground">Pick up where you left off</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+                {recentProducts.map((product, i) => (
+                  <RecentCard key={product.id} product={product} index={i}
+                    onViewDetails={() => openProduct(product)} />
+                ))}
+              </div>
+            </div>
+          </section>
+        )}
 
         <Footer />
         <ProductModal product={selectedProduct} onClose={() => setSelectedProduct(null)} />
@@ -129,7 +194,6 @@ function ProductCard({ product, index, onViewDetails }: {
   const [added, setAdded] = useState(false);
   const addedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Cleanup timer on unmount
   useEffect(() => () => { if (addedTimer.current) clearTimeout(addedTimer.current); }, []);
 
   const selectedSize: ProductSize = product.sizes[selectedSizeIdx];
@@ -158,19 +222,17 @@ function ProductCard({ product, index, onViewDetails }: {
       className="rounded-2xl overflow-hidden flex flex-col border shadow-sm hover:shadow-md transition-shadow duration-300"
       style={{ borderColor: 'rgba(139,94,60,0.12)', background: 'hsl(var(--background))' }}
     >
-      {/* ── Image ── */}
+      {/* Image */}
       <div className="relative h-56 overflow-hidden bg-muted flex-shrink-0 group">
         <img src={product.image} alt={product.name}
           className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
         <div className="absolute inset-0 bg-gradient-to-t from-black/25 via-transparent to-transparent" />
 
-        {/* Tag */}
         <div className="absolute top-3 left-3 px-2.5 py-0.5 rounded-full text-[11px] font-bold text-white shadow"
           style={{ background: 'hsl(4,60%,44%)' }}>
           {product.tag}
         </div>
 
-        {/* View details button on hover */}
         <button
           onClick={e => { e.stopPropagation(); onViewDetails(); }}
           className="absolute top-3 right-3 p-1.5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-200 shadow"
@@ -180,7 +242,6 @@ function ProductCard({ product, index, onViewDetails }: {
           <Eye size={13} />
         </button>
 
-        {/* Spice */}
         <div className="absolute bottom-3 left-3 flex gap-0.5">
           {[...Array(5)].map((_, i) => (
             <Flame key={i} size={12}
@@ -189,9 +250,8 @@ function ProductCard({ product, index, onViewDetails }: {
         </div>
       </div>
 
-      {/* ── Card Body ── */}
+      {/* Body */}
       <div className="p-4 flex flex-col flex-1">
-        {/* Category + name */}
         <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-0.5">
           {product.category}
         </p>
@@ -200,15 +260,11 @@ function ProductCard({ product, index, onViewDetails }: {
           {product.description}
         </p>
 
-        {/* ── Size selector ── */}
         <div className="mb-3">
-          <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1.5">
-            Size
-          </p>
+          <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1.5">Size</p>
           <div className="flex gap-1.5 flex-wrap">
             {product.sizes.map((s, idx) => (
-              <button
-                key={s.label}
+              <button key={s.label}
                 onClick={e => { e.stopPropagation(); setSelectedSizeIdx(idx); setQty(1); }}
                 className="px-2.5 py-1 rounded-lg text-xs font-semibold border transition-all duration-150"
                 style={{
@@ -216,46 +272,35 @@ function ProductCard({ product, index, onViewDetails }: {
                   background: selectedSizeIdx === idx ? 'rgba(181,58,46,0.1)' : 'transparent',
                   color: selectedSizeIdx === idx ? 'hsl(4,60%,44%)' : 'hsl(18,18%,35%)',
                   fontWeight: selectedSizeIdx === idx ? 700 : 600,
-                }}
-              >
+                }}>
                 {s.label}
               </button>
             ))}
           </div>
         </div>
 
-        {/* ── Price ── */}
         <div className="flex items-baseline gap-1.5 mb-4">
-          <span className="text-2xl font-bold" style={{ color: 'hsl(4,60%,44%)' }}>
-            ₹{selectedSize.price}
-          </span>
+          <span className="text-2xl font-bold" style={{ color: 'hsl(4,60%,44%)' }}>₹{selectedSize.price}</span>
           <span className="text-xs text-muted-foreground">/ {selectedSize.label}</span>
         </div>
 
-        {/* ── Qty stepper + Add to Cart ── */}
         <div className="flex items-center gap-2 mt-auto">
-          {/* Stepper */}
           <div className="flex items-center rounded-xl border overflow-hidden flex-shrink-0"
             style={{ borderColor: 'rgba(139,94,60,0.2)' }}>
-            <button
-              onClick={e => { e.stopPropagation(); setQty(q => Math.max(1, q - 1)); }}
-              className="w-8 h-9 flex items-center justify-center transition-colors hover:bg-muted text-sm"
-            >
+            <button onClick={e => { e.stopPropagation(); setQty(q => Math.max(1, q - 1)); }}
+              className="w-8 h-9 flex items-center justify-center transition-colors hover:bg-muted text-sm">
               <Minus size={13} />
             </button>
             <span className="w-8 h-9 flex items-center justify-center text-sm font-bold border-x"
               style={{ borderColor: 'rgba(139,94,60,0.15)' }}>
               {qty}
             </span>
-            <button
-              onClick={e => { e.stopPropagation(); setQty(q => q + 1); }}
-              className="w-8 h-9 flex items-center justify-center transition-colors hover:bg-muted text-sm"
-            >
+            <button onClick={e => { e.stopPropagation(); setQty(q => q + 1); }}
+              className="w-8 h-9 flex items-center justify-center transition-colors hover:bg-muted text-sm">
               <Plus size={13} />
             </button>
           </div>
 
-          {/* Add to Cart */}
           <AnimatePresence mode="wait">
             <motion.button
               key={added ? 'added' : 'add'}
@@ -266,15 +311,90 @@ function ProductCard({ product, index, onViewDetails }: {
               onClick={handleAdd}
               className="flex-1 h-9 flex items-center justify-center gap-1.5 rounded-xl text-xs font-bold transition-all active:scale-95"
               style={{
-                background: added
-                  ? 'hsl(140,60%,38%)'
-                  : 'linear-gradient(135deg, hsl(4,65%,48%), hsl(4,60%,38%))',
+                background: added ? 'hsl(140,60%,38%)' : 'linear-gradient(135deg, hsl(4,65%,48%), hsl(4,60%,38%))',
                 color: '#FFF9F0',
                 boxShadow: added ? '0 4px 14px rgba(34,197,94,0.25)' : '0 4px 14px rgba(181,58,46,0.25)',
-              }}
-            >
+              }}>
               <ShoppingCart size={13} />
               {added ? 'Added ✓' : `Add · ₹${selectedSize.price * qty}`}
+            </motion.button>
+          </AnimatePresence>
+        </div>
+      </div>
+    </motion.div>
+  );
+}
+
+function RecentCard({ product, index, onViewDetails }: {
+  product: Product; index: number; onViewDetails: () => void;
+}) {
+  const ref = useRef(null);
+  const isInView = useInView(ref, { once: true, margin: '-20px' });
+  const { addItem } = useCart();
+  const [added, setAdded] = useState(false);
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => () => { if (timer.current) clearTimeout(timer.current); }, []);
+
+  const firstSize = product.sizes[0];
+
+  function handleQuickAdd(e: React.MouseEvent) {
+    e.stopPropagation();
+    addItem({
+      productId: product.id,
+      productName: product.name,
+      size: firstSize.label,
+      price: firstSize.price,
+      image: product.image,
+      tag: product.tag,
+    }, 1);
+    if (timer.current) clearTimeout(timer.current);
+    setAdded(true);
+    timer.current = setTimeout(() => setAdded(false), 1800);
+  }
+
+  return (
+    <motion.div
+      ref={ref}
+      initial={{ opacity: 0, y: 20 }}
+      animate={isInView ? { opacity: 1, y: 0 } : {}}
+      transition={{ duration: 0.4, delay: index * 0.06 }}
+      onClick={onViewDetails}
+      className="rounded-xl overflow-hidden border cursor-pointer group transition-all duration-200 hover:shadow-md"
+      style={{ borderColor: 'rgba(139,94,60,0.12)', background: 'hsl(var(--background))' }}
+    >
+      {/* Image */}
+      <div className="relative h-32 overflow-hidden bg-muted">
+        <img src={product.image} alt={product.name}
+          className="w-full h-full object-cover transition-transform duration-400 group-hover:scale-105" />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/30 via-transparent to-transparent" />
+        <div className="absolute top-2 left-2 px-2 py-0.5 rounded-full text-[10px] font-bold text-white"
+          style={{ background: 'hsl(4,60%,44%)' }}>
+          {product.tag}
+        </div>
+      </div>
+
+      {/* Info */}
+      <div className="p-3">
+        <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground mb-0.5">{product.category}</p>
+        <p className="text-sm font-bold leading-tight mb-2 line-clamp-1">{product.name}</p>
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-base font-bold" style={{ color: 'hsl(4,60%,44%)' }}>₹{firstSize.price}</span>
+          <AnimatePresence mode="wait">
+            <motion.button
+              key={added ? 'done' : 'add'}
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.9 }}
+              transition={{ duration: 0.12 }}
+              onClick={handleQuickAdd}
+              className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-bold"
+              style={{
+                background: added ? 'hsl(140,60%,38%)' : 'rgba(181,58,46,0.1)',
+                color: added ? '#fff' : 'hsl(4,60%,44%)',
+              }}>
+              {added ? '✓' : <ShoppingCart size={11} />}
+              {added ? 'Added' : 'Add'}
             </motion.button>
           </AnimatePresence>
         </div>

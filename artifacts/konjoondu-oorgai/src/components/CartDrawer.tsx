@@ -16,6 +16,24 @@ type Step = 'cart' | 'checkout' | 'confirmed';
 
 const API_BASE = import.meta.env.BASE_URL?.replace(/\/$/, '');
 
+declare global {
+  interface Window {
+    Razorpay: new (options: Record<string, unknown>) => { open(): void };
+  }
+}
+
+function loadRazorpayScript(): Promise<boolean> {
+  return new Promise(resolve => {
+    if (document.getElementById('razorpay-sdk')) { resolve(true); return; }
+    const script = document.createElement('script');
+    script.id = 'razorpay-sdk';
+    script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+    script.onload = () => resolve(true);
+    script.onerror = () => resolve(false);
+    document.body.appendChild(script);
+  });
+}
+
 function CartDrawerContent() {
   const { items, totalAmount, totalItems, isOpen, closeCart, removeItem, updateQuantity, clearCart } = useCart();
   const { toast } = useToast();
@@ -24,14 +42,12 @@ function CartDrawerContent() {
   const [loading, setLoading] = useState(false);
   const [orderId, setOrderId] = useState('');
 
-  // Reset step to 'cart' whenever drawer closes
   useEffect(() => {
     if (isOpen) return;
     const t = setTimeout(() => setStep('cart'), 350);
     return () => clearTimeout(t);
   }, [isOpen]);
 
-  // Prevent body scroll when open
   useEffect(() => {
     if (isOpen) {
       document.body.style.overflow = 'hidden';
@@ -46,35 +62,97 @@ function CartDrawerContent() {
       toast({ title: 'Please fill all required fields', variant: 'destructive' });
       return;
     }
+
     setLoading(true);
     try {
-      const res = await fetch(`${API_BASE}/api/orders`, {
+      // Step 1: load Razorpay SDK
+      const sdkLoaded = await loadRazorpayScript();
+      if (!sdkLoaded) {
+        toast({ title: 'Payment SDK failed to load', description: 'Check your internet connection.', variant: 'destructive' });
+        setLoading(false);
+        return;
+      }
+
+      // Step 2: create Razorpay order on backend
+      const createRes = await fetch(`${API_BASE}/api/payments/create-order`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          customer: form,
-          items: items.map(i => ({
-            productId: i.productId,
-            productName: i.productName,
-            size: i.size,
-            price: i.price,
-            quantity: i.quantity,
-          })),
-          totalAmount,
-        }),
+        body: JSON.stringify({ amount: totalAmount }),
       });
-      const data = await res.json();
-      if (data.success) {
-        setOrderId(data.orderId);
-        setStep('confirmed');
-        clearCart();
-        setForm({ name: '', phone: '', email: '', address: '' });
-      } else {
-        toast({ title: 'Order failed', description: data.message, variant: 'destructive' });
+      const createData = await createRes.json();
+      if (!createData.success) {
+        toast({ title: 'Could not initiate payment', description: createData.message, variant: 'destructive' });
+        setLoading(false);
+        return;
       }
+
+      // Step 3: open Razorpay checkout
+      const rzp = new window.Razorpay({
+        key: createData.keyId,
+        amount: createData.amount,
+        currency: createData.currency,
+        order_id: createData.orderId,
+        name: 'Konjoondu Oorgai',
+        description: `Order of ${totalItems} item${totalItems !== 1 ? 's' : ''}`,
+        prefill: {
+          name: form.name,
+          contact: form.phone,
+          email: form.email,
+        },
+        theme: { color: '#B53A2E' },
+        handler: async (response: Record<string, string>) => {
+          // Step 4: verify payment signature
+          const verifyRes = await fetch(`${API_BASE}/api/payments/verify`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              razorpay_order_id: response.razorpay_order_id,
+              razorpay_payment_id: response.razorpay_payment_id,
+              razorpay_signature: response.razorpay_signature,
+            }),
+          });
+          const verifyData = await verifyRes.json();
+          if (!verifyData.success) {
+            toast({ title: 'Payment verification failed', variant: 'destructive' });
+            return;
+          }
+
+          // Step 5: create order record
+          const orderRes = await fetch(`${API_BASE}/api/orders`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              customer: form,
+              items: items.map(i => ({
+                productId: i.productId,
+                productName: i.productName,
+                size: i.size,
+                price: i.price,
+                quantity: i.quantity,
+              })),
+              totalAmount,
+              paymentId: response.razorpay_payment_id,
+            }),
+          });
+          const orderData = await orderRes.json();
+          if (orderData.success) {
+            setOrderId(orderData.orderId);
+            setStep('confirmed');
+            clearCart();
+            setForm({ name: '', phone: '', email: '', address: '' });
+          } else {
+            toast({ title: 'Order recording failed', description: orderData.message, variant: 'destructive' });
+          }
+        },
+        modal: {
+          ondismiss: () => { setLoading(false); },
+        },
+      });
+
+      rzp.open();
+      setLoading(false);
     } catch {
-      toast({ title: 'Network error', description: 'Please try again.', variant: 'destructive' });
-    } finally {
+      toast({ title: 'Something went wrong', description: 'Please try again.', variant: 'destructive' });
       setLoading(false);
     }
   }
@@ -83,7 +161,7 @@ function CartDrawerContent() {
     <AnimatePresence>
       {isOpen && (
         <>
-          {/* ── Full-screen backdrop ── */}
+          {/* Backdrop */}
           <motion.div
             key="cart-backdrop"
             initial={{ opacity: 0 }}
@@ -91,17 +169,14 @@ function CartDrawerContent() {
             exit={{ opacity: 0 }}
             transition={{ duration: 0.25 }}
             style={{
-              position: 'fixed',
-              inset: 0,
-              zIndex: 9998,
+              position: 'fixed', inset: 0, zIndex: 9998,
               background: 'rgba(0,0,0,0.55)',
-              backdropFilter: 'blur(4px)',
-              WebkitBackdropFilter: 'blur(4px)',
+              backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)',
             }}
             onClick={closeCart}
           />
 
-          {/* ── Drawer panel ── */}
+          {/* Drawer panel */}
           <motion.div
             key="cart-panel"
             initial={{ x: '100%' }}
@@ -109,39 +184,26 @@ function CartDrawerContent() {
             exit={{ x: '100%' }}
             transition={{ type: 'spring', stiffness: 320, damping: 32, mass: 0.9 }}
             style={{
-              position: 'fixed',
-              top: 0,
-              right: 0,
-              bottom: 0,
-              width: '100%',
-              maxWidth: 440,
-              zIndex: 9999,
-              display: 'flex',
-              flexDirection: 'column',
+              position: 'fixed', top: 0, right: 0, bottom: 0,
+              width: '100%', maxWidth: 440, zIndex: 9999,
+              display: 'flex', flexDirection: 'column',
               background: 'hsl(var(--background))',
               boxShadow: '-8px 0 40px rgba(0,0,0,0.18)',
             }}
           >
-            {/* ── Header ── */}
+            {/* Header */}
             <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              padding: '20px 24px',
-              borderBottom: '1px solid rgba(139,94,60,0.12)',
-              flexShrink: 0,
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              padding: '20px 24px', borderBottom: '1px solid rgba(139,94,60,0.12)', flexShrink: 0,
             }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                 {step === 'checkout' && (
-                  <button
-                    onClick={() => setStep('cart')}
+                  <button onClick={() => setStep('cart')}
                     style={{
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
                       width: 32, height: 32, borderRadius: '50%',
-                      background: 'rgba(181,58,46,0.08)', border: 'none',
-                      cursor: 'pointer', marginRight: 4,
-                    }}
-                  >
+                      background: 'rgba(181,58,46,0.08)', border: 'none', cursor: 'pointer', marginRight: 4,
+                    }}>
                     <ChevronLeft size={16} color="hsl(4,60%,44%)" />
                   </button>
                 )}
@@ -152,21 +214,18 @@ function CartDrawerContent() {
                   {step === 'confirmed' && 'Order Placed!'}
                 </span>
               </div>
-              <button
-                onClick={closeCart}
+              <button onClick={closeCart}
                 style={{
                   width: 34, height: 34, borderRadius: '50%', border: 'none',
                   background: 'rgba(0,0,0,0.06)', cursor: 'pointer',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
-                }}
-                aria-label="Close cart"
-              >
+                }}>
                 <X size={16} />
               </button>
             </div>
 
-            {/* ── Scrollable body ── */}
-            <div style={{ flex: 1, overflowY: 'auto', padding: '0' }}>
+            {/* Body */}
+            <div style={{ flex: 1, overflowY: 'auto' }}>
 
               {/* CART STEP */}
               {step === 'cart' && (
@@ -200,23 +259,17 @@ function CartDrawerContent() {
                             border: '1px solid rgba(139,94,60,0.1)',
                             background: 'rgba(181,58,46,0.025)',
                           }}>
-                          {/* Image */}
                           <img src={item.image} alt={item.productName}
                             style={{ width: 68, height: 68, borderRadius: 12, objectFit: 'cover', flexShrink: 0 }} />
-
-                          {/* Details */}
                           <div style={{ flex: 1, minWidth: 0 }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8, marginBottom: 2 }}>
                               <p style={{ fontWeight: 700, fontSize: 14, lineHeight: '1.3' }}>{item.productName}</p>
-                              <button
-                                onClick={() => removeItem(item.productId, item.size)}
+                              <button onClick={() => removeItem(item.productId, item.size)}
                                 style={{
                                   flexShrink: 0, padding: '4px', borderRadius: 8, border: 'none',
                                   background: 'transparent', cursor: 'pointer', color: 'hsl(var(--muted-foreground))',
                                   display: 'flex',
-                                }}
-                                title="Remove"
-                              >
+                                }}>
                                 <Trash2 size={14} />
                               </button>
                             </div>
@@ -224,29 +277,22 @@ function CartDrawerContent() {
                               {item.size} · ₹{item.price} each
                             </p>
                             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                              {/* Qty stepper */}
                               <div style={{
                                 display: 'flex', alignItems: 'center', borderRadius: 10,
                                 border: '1px solid rgba(139,94,60,0.2)', overflow: 'hidden',
                               }}>
-                                <button
-                                  onClick={() => updateQuantity(item.productId, item.size, item.quantity - 1)}
-                                  style={{ width: 30, height: 28, border: 'none', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                                >
+                                <button onClick={() => updateQuantity(item.productId, item.size, item.quantity - 1)}
+                                  style={{ width: 30, height: 28, border: 'none', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                   <Minus size={12} />
                                 </button>
                                 <span style={{ width: 28, textAlign: 'center', fontWeight: 700, fontSize: 13 }}>
                                   {item.quantity}
                                 </span>
-                                <button
-                                  onClick={() => updateQuantity(item.productId, item.size, item.quantity + 1)}
-                                  style={{ width: 30, height: 28, border: 'none', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                                >
+                                <button onClick={() => updateQuantity(item.productId, item.size, item.quantity + 1)}
+                                  style={{ width: 30, height: 28, border: 'none', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                   <Plus size={12} />
                                 </button>
                               </div>
-
-                              {/* Line total */}
                               <span style={{ fontWeight: 800, fontSize: 15, color: 'hsl(4,60%,44%)' }}>
                                 ₹{item.price * item.quantity}
                               </span>
@@ -262,9 +308,15 @@ function CartDrawerContent() {
               {/* CHECKOUT STEP */}
               {step === 'checkout' && (
                 <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 16 }}>
-                  <p style={{ fontSize: 13, color: 'hsl(var(--muted-foreground))' }}>
-                    Fill in your details and we'll confirm your order within 24 hours.
-                  </p>
+                  <div style={{
+                    display: 'flex', alignItems: 'center', gap: 10, padding: '12px 14px',
+                    borderRadius: 12, background: 'rgba(181,58,46,0.06)', border: '1px solid rgba(181,58,46,0.15)',
+                  }}>
+                    <span style={{ fontSize: 20 }}>🔒</span>
+                    <p style={{ fontSize: 12, color: 'hsl(var(--muted-foreground))', lineHeight: 1.5 }}>
+                      Secure payment via <strong style={{ color: 'hsl(4,60%,44%)' }}>Razorpay</strong>. UPI, Cards, Net Banking &amp; more accepted.
+                    </p>
+                  </div>
 
                   {[
                     { key: 'name', label: 'Full Name *', type: 'text', placeholder: 'Your name' },
@@ -282,8 +334,7 @@ function CartDrawerContent() {
                         style={{
                           width: '100%', padding: '10px 14px', borderRadius: 12, fontSize: 14,
                           border: '1.5px solid rgba(139,94,60,0.2)', background: 'transparent',
-                          outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit',
-                          color: 'inherit',
+                          outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit', color: 'inherit',
                         }}
                         onFocus={e => { e.target.style.borderColor = 'hsl(4,60%,44%)'; }}
                         onBlur={e => { e.target.style.borderColor = 'rgba(139,94,60,0.2)'; }}
@@ -302,15 +353,14 @@ function CartDrawerContent() {
                       style={{
                         width: '100%', padding: '10px 14px', borderRadius: 12, fontSize: 14,
                         border: '1.5px solid rgba(139,94,60,0.2)', background: 'transparent',
-                        outline: 'none', resize: 'none', boxSizing: 'border-box', fontFamily: 'inherit',
-                        color: 'inherit',
+                        outline: 'none', resize: 'none', boxSizing: 'border-box', fontFamily: 'inherit', color: 'inherit',
                       }}
                       onFocus={e => { e.target.style.borderColor = 'hsl(4,60%,44%)'; }}
                       onBlur={e => { e.target.style.borderColor = 'rgba(139,94,60,0.2)'; }}
                     />
                   </div>
 
-                  {/* Summary */}
+                  {/* Order Summary */}
                   <div style={{ borderRadius: 14, padding: '14px 16px', background: 'rgba(181,58,46,0.05)', border: '1px solid rgba(181,58,46,0.1)' }}>
                     <p style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'hsl(var(--muted-foreground))', marginBottom: 10 }}>
                       Order Summary
@@ -340,14 +390,13 @@ function CartDrawerContent() {
                       width: 88, height: 88, borderRadius: '50%',
                       background: 'rgba(34,197,94,0.12)',
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    }}
-                  >
+                    }}>
                     <CheckCircle2 size={48} color="#22c55e" />
                   </motion.div>
                   <div>
-                    <h3 style={{ fontSize: 22, fontWeight: 800, marginBottom: 8 }}>Order Placed! 🎉</h3>
+                    <h3 style={{ fontSize: 22, fontWeight: 800, marginBottom: 8 }}>Payment Successful! 🎉</h3>
                     <p style={{ fontSize: 14, color: 'hsl(var(--muted-foreground))', marginBottom: 16, lineHeight: 1.6 }}>
-                      We've received your order and will contact you within 24 hours to confirm delivery.
+                      Your order has been confirmed. We'll contact you within 24 hours to arrange delivery.
                     </p>
                     <div style={{
                       display: 'inline-flex', alignItems: 'center', gap: 8,
@@ -359,19 +408,17 @@ function CartDrawerContent() {
                     </div>
                   </div>
                   <p style={{ fontSize: 12, color: 'hsl(var(--muted-foreground))' }}>
-                    Payment collected at delivery. We'll call you to confirm.
+                    Payment collected securely via Razorpay.
                   </p>
                 </div>
               )}
             </div>
 
-            {/* ── Footer / CTA ── */}
+            {/* Footer CTA */}
             {step !== 'confirmed' && (
               <div style={{
-                padding: '16px 20px',
-                borderTop: '1px solid rgba(139,94,60,0.12)',
-                flexShrink: 0,
-                background: 'hsl(var(--background))',
+                padding: '16px 20px', borderTop: '1px solid rgba(139,94,60,0.12)',
+                flexShrink: 0, background: 'hsl(var(--background))',
               }}>
                 {step === 'cart' && (
                   <>
@@ -380,9 +427,7 @@ function CartDrawerContent() {
                         <span style={{ fontSize: 14, color: 'hsl(var(--muted-foreground))' }}>
                           {totalItems} item{totalItems !== 1 ? 's' : ''}
                         </span>
-                        <span style={{ fontSize: 22, fontWeight: 800, color: 'hsl(4,60%,44%)' }}>
-                          ₹{totalAmount}
-                        </span>
+                        <span style={{ fontSize: 22, fontWeight: 800, color: 'hsl(4,60%,44%)' }}>₹{totalAmount}</span>
                       </div>
                     )}
                     <button
@@ -396,8 +441,7 @@ function CartDrawerContent() {
                         display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
                         boxShadow: items.length > 0 ? '0 6px 20px rgba(181,58,46,0.3)' : 'none',
                         fontFamily: 'inherit',
-                      }}
-                    >
+                      }}>
                       Proceed to Checkout
                       <ArrowRight size={18} />
                     </button>
@@ -410,26 +454,25 @@ function CartDrawerContent() {
                     style={{
                       width: '100%', padding: '14px', borderRadius: 16, border: 'none',
                       background: loading ? 'rgba(181,58,46,0.4)' : 'linear-gradient(135deg, hsl(4,65%,48%), hsl(4,60%,38%))',
-                      color: '#FFF9F0', fontWeight: 700, fontSize: 15, cursor: loading ? 'not-allowed' : 'pointer',
-                      boxShadow: '0 6px 20px rgba(181,58,46,0.3)',
-                      fontFamily: 'inherit',
-                    }}
-                  >
-                    {loading ? 'Placing Order…' : `Place Order · ₹${totalAmount}`}
+                      color: '#FFF9F0', fontWeight: 700, fontSize: 15,
+                      cursor: loading ? 'not-allowed' : 'pointer',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                      boxShadow: '0 6px 20px rgba(181,58,46,0.3)', fontFamily: 'inherit',
+                    }}>
+                    {loading ? 'Opening Payment…' : `Pay ₹${totalAmount} via Razorpay`}
+                    {!loading && <span style={{ fontSize: 16 }}>🔒</span>}
                   </button>
                 )}
               </div>
             )}
             {step === 'confirmed' && (
               <div style={{ padding: '16px 20px', borderTop: '1px solid rgba(139,94,60,0.12)', flexShrink: 0, background: 'hsl(var(--background))' }}>
-                <button
-                  onClick={closeCart}
+                <button onClick={closeCart}
                   style={{
                     width: '100%', padding: '14px', borderRadius: 16, border: 'none',
                     background: 'hsl(4,60%,44%)', color: '#FFF9F0',
                     fontWeight: 700, fontSize: 15, cursor: 'pointer', fontFamily: 'inherit',
-                  }}
-                >
+                  }}>
                   Continue Shopping
                 </button>
               </div>
