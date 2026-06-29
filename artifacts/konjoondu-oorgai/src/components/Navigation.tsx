@@ -1,7 +1,9 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTheme } from '@/components/ThemeProvider';
-import { Sun, Moon, Menu, X } from 'lucide-react';
+import { Sun, Moon, Menu, X, ShoppingCart } from 'lucide-react';
+import { useLocation } from 'wouter';
+import { useCart } from '@/context/CartContext';
 
 // ── Logo Mark ────────────────────────────────────────────────────
 function LogoMark({ size = 36 }: { size?: number }) {
@@ -19,51 +21,75 @@ function LogoMark({ size = 36 }: { size?: number }) {
   );
 }
 
+// Nav links — Products goes to /products page, others are hash anchors on Home
 const NAV_LINKS = [
-  { label: 'Products', href: '#products' },
-  { label: 'Our Story', href: '#story' },
-  { label: 'Recipes', href: '#recipes' },
-  { label: 'Contact', href: '#contact' },
+  { label: 'Products', href: '/products', isRoute: true },
+  { label: 'Our Story', href: '#story', isRoute: false },
+  { label: 'Recipes', href: '#recipes', isRoute: false },
+  { label: 'Contact', href: '#contact', isRoute: false },
 ];
 
-// Elastic spring — springy enough to feel alive, stable enough to settle
 const SPRING = { type: 'spring' as const, stiffness: 340, damping: 28, mass: 0.85 };
 
 export default function Navigation() {
   const [scrolled, setScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const { theme, setTheme } = useTheme();
+  const [location, navigate] = useLocation();
+  const { totalItems, openCart } = useCart();
 
-  // ── Scroll listener ──────────────────────────────────────────
+  const isProductsPage = location === '/products';
+
   useEffect(() => {
     const handler = () => setScrolled(window.scrollY > 80);
-    // Run once on mount so state is correct if page loads mid-scroll
     handler();
     window.addEventListener('scroll', handler, { passive: true });
     return () => window.removeEventListener('scroll', handler);
   }, []);
 
-  // ── DESKTOP ─────────────────────────────────────────────────
-  //
-  // KEY FIX: never animate `width` or use `'auto'` — Framer Motion
-  // can't interpolate string ↔ number. Instead we:
-  //   • keep the nav always `width: 100%` (fills the centering flex wrapper)
-  //   • animate `maxWidth` between a large number (normal) and a small one (pill)
-  //   • spring works perfectly in BOTH directions this way
-  //
+  // On the products page, nav is always in "scrolled" (pill-visible) state
+  const navScrolled = isProductsPage ? true : scrolled;
+
+  function handleNavClick(e: React.MouseEvent<HTMLAnchorElement>, link: typeof NAV_LINKS[0]) {
+    e.preventDefault();
+    setMobileOpen(false);
+    if (link.isRoute) {
+      navigate(link.href);
+    } else {
+      if (isProductsPage) {
+        // Go home first then scroll
+        navigate('/');
+        setTimeout(() => {
+          const el = document.querySelector(link.href);
+          el?.scrollIntoView({ behavior: 'smooth' });
+        }, 300);
+      } else {
+        const el = document.querySelector(link.href);
+        el?.scrollIntoView({ behavior: 'smooth' });
+      }
+    }
+  }
+
+  function handleLogoClick(e: React.MouseEvent) {
+    e.preventDefault();
+    if (isProductsPage) {
+      navigate('/');
+    } else {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  }
+
   return (
     <>
       {/* ── DESKTOP ─────────────────────────────────────────── */}
-      <div
-        className="fixed top-0 left-0 right-0 z-50 hidden md:flex justify-center items-start pointer-events-none"
-      >
+      <div className="fixed top-0 left-0 right-0 z-50 hidden md:flex justify-center items-start pointer-events-none">
         <motion.nav
           layout
           initial={false}
           animate={
-            scrolled
+            navScrolled
               ? {
-                  maxWidth: 760,
+                  maxWidth: 800,
                   marginTop: 14,
                   paddingTop: 10,
                   paddingBottom: 10,
@@ -91,64 +117,44 @@ export default function Navigation() {
           }
           transition={SPRING}
           className="w-full flex items-center justify-between gap-6 pointer-events-auto"
-          style={{ WebkitBackdropFilter: scrolled ? 'blur(28px)' : 'blur(0px)' }}
+          style={{ WebkitBackdropFilter: navScrolled ? 'blur(28px)' : 'blur(0px)' }}
         >
           {/* Logo */}
           <a
             href="#"
-            onClick={e => { e.preventDefault(); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+            onClick={handleLogoClick}
             className="flex items-center gap-2.5 flex-shrink-0 select-none"
             aria-label="Konjoondu Oorgai home"
           >
-            <motion.span animate={{ scale: scrolled ? 0.88 : 1 }} transition={SPRING} style={{ display: 'block' }}>
-              <LogoMark size={scrolled ? 30 : 36} />
+            <motion.span animate={{ scale: navScrolled ? 0.88 : 1 }} transition={SPRING} style={{ display: 'block' }}>
+              <LogoMark size={navScrolled ? 30 : 36} />
             </motion.span>
             <span className="flex flex-col leading-none">
               <motion.span
-                animate={{
-                  fontSize: scrolled ? '14px' : '19px',
-                  color: scrolled ? 'hsl(4,60%,44%)' : '#FFF9F0',
-                }}
+                animate={{ fontSize: navScrolled ? '14px' : '19px', color: navScrolled ? 'hsl(4,60%,44%)' : '#FFF9F0' }}
                 transition={SPRING}
-                style={{
-                  fontFamily: 'Poppins,sans-serif',
-                  fontWeight: 900,
-                  letterSpacing: '-0.02em',
-                  lineHeight: 1,
-                  display: 'block',
-                  textShadow: scrolled ? 'none' : '0 1px 6px rgba(0,0,0,0.5)',
-                }}
+                style={{ fontFamily: 'Poppins,sans-serif', fontWeight: 900, letterSpacing: '-0.02em', lineHeight: 1, display: 'block',
+                  textShadow: navScrolled ? 'none' : '0 1px 6px rgba(0,0,0,0.5)' }}
               >
                 Konjoondu
               </motion.span>
               <motion.span
-                animate={{
-                  fontSize: scrolled ? '8px' : '10px',
-                  color: scrolled ? 'hsl(18,18%,24%)' : 'rgba(255,249,240,0.75)',
-                }}
+                animate={{ fontSize: navScrolled ? '8px' : '10px', color: navScrolled ? 'hsl(18,18%,24%)' : 'rgba(255,249,240,0.75)' }}
                 transition={SPRING}
-                style={{
-                  fontFamily: 'Poppins,sans-serif',
-                  fontWeight: 700,
-                  letterSpacing: '0.2em',
-                  lineHeight: 1.4,
-                  display: 'block',
-                  textShadow: scrolled ? 'none' : '0 1px 4px rgba(0,0,0,0.4)',
-                }}
+                style={{ fontFamily: 'Poppins,sans-serif', fontWeight: 700, letterSpacing: '0.2em', lineHeight: 1.4, display: 'block',
+                  textShadow: navScrolled ? 'none' : '0 1px 4px rgba(0,0,0,0.4)' }}
               >
                 OORGAI
               </motion.span>
             </span>
           </a>
 
-          {/* Divider — only in pill mode */}
+          {/* Divider */}
           <AnimatePresence>
-            {scrolled && (
+            {navScrolled && (
               <motion.div
-                initial={{ opacity: 0, scaleY: 0 }}
-                animate={{ opacity: 1, scaleY: 1 }}
-                exit={{ opacity: 0, scaleY: 0 }}
-                transition={{ duration: 0.2 }}
+                initial={{ opacity: 0, scaleY: 0 }} animate={{ opacity: 1, scaleY: 1 }}
+                exit={{ opacity: 0, scaleY: 0 }} transition={{ duration: 0.2 }}
                 className="h-5 w-px flex-shrink-0 rounded-full"
                 style={{ background: 'rgba(139,94,60,0.22)' }}
               />
@@ -161,33 +167,59 @@ export default function Navigation() {
               <a
                 key={link.label}
                 href={link.href}
+                onClick={e => handleNavClick(e, link)}
                 className="relative px-3.5 py-1.5 rounded-full text-sm font-semibold transition-colors duration-200 group"
                 style={{
                   fontFamily: 'Poppins,sans-serif',
-                  color: scrolled ? 'hsl(18,18%,18%)' : 'hsl(18,18%,95%)',
+                  color: navScrolled ? 'hsl(18,18%,18%)' : 'hsl(18,18%,95%)',
                   textDecoration: 'none',
-                  textShadow: scrolled ? 'none' : '0 1px 3px rgba(0,0,0,0.4)',
+                  textShadow: navScrolled ? 'none' : '0 1px 3px rgba(0,0,0,0.4)',
+                  fontWeight: link.isRoute && isProductsPage ? 800 : 600,
                 }}
               >
                 <span className="relative z-10">{link.label}</span>
-                {/* hover pill */}
                 <span
                   className="absolute inset-0 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-200"
-                  style={{ background: scrolled ? 'rgba(181,58,46,0.08)' : 'rgba(255,255,255,0.12)' }}
+                  style={{ background: navScrolled ? 'rgba(181,58,46,0.08)' : 'rgba(255,255,255,0.12)' }}
                 />
-                {/* underline */}
                 <span
-                  className="absolute bottom-0.5 left-3.5 right-3.5 h-[1.5px] rounded-full origin-left scale-x-0 group-hover:scale-x-100 transition-transform duration-300"
-                  style={{ background: scrolled ? 'hsl(4,60%,44%)' : 'rgba(255,249,243,0.8)' }}
+                  className="absolute bottom-0.5 left-3.5 right-3.5 h-[1.5px] rounded-full origin-left transition-transform duration-300"
+                  style={{
+                    background: navScrolled ? 'hsl(4,60%,44%)' : 'rgba(255,249,243,0.8)',
+                    transform: link.isRoute && isProductsPage ? 'scaleX(1)' : 'scaleX(0)',
+                  }}
                 />
               </a>
             ))}
 
-            {/* CTA in pill mode */}
+            {/* Cart icon */}
+            <button
+              onClick={openCart}
+              className="relative ml-1 p-2 rounded-full flex-shrink-0 transition-colors"
+              style={{ background: navScrolled ? 'rgba(181,58,46,0.08)' : 'rgba(255,255,255,0.14)' }}
+              aria-label="Open cart"
+            >
+              <ShoppingCart
+                size={16}
+                style={{ color: navScrolled ? 'hsl(4,60%,44%)' : '#FFF9F3' }}
+              />
+              {totalItems > 0 && (
+                <motion.span
+                  initial={{ scale: 0 }} animate={{ scale: 1 }}
+                  className="absolute -top-1 -right-1 min-w-[18px] h-[18px] rounded-full flex items-center justify-center text-[10px] font-bold text-white"
+                  style={{ background: 'hsl(4,60%,44%)' }}
+                >
+                  {totalItems}
+                </motion.span>
+              )}
+            </button>
+
+            {/* Shop Now CTA in pill mode */}
             <AnimatePresence>
-              {scrolled && (
+              {navScrolled && (
                 <motion.a
-                  href="#products"
+                  href="/products"
+                  onClick={e => { e.preventDefault(); navigate('/products'); }}
                   initial={{ opacity: 0, scale: 0.8, width: 0 }}
                   animate={{ opacity: 1, scale: 1, width: 'auto' }}
                   exit={{ opacity: 0, scale: 0.8, width: 0 }}
@@ -208,11 +240,10 @@ export default function Navigation() {
 
             {/* Theme toggle */}
             <motion.button
-              whileHover={{ scale: 1.12 }}
-              whileTap={{ scale: 0.9 }}
+              whileHover={{ scale: 1.12 }} whileTap={{ scale: 0.9 }}
               onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
               className="ml-1 p-2 rounded-full flex-shrink-0"
-              style={{ background: scrolled ? 'rgba(139,94,60,0.08)' : 'rgba(255,255,255,0.14)' }}
+              style={{ background: navScrolled ? 'rgba(139,94,60,0.08)' : 'rgba(255,255,255,0.14)' }}
               aria-label="Toggle theme"
             >
               <AnimatePresence mode="wait" initial={false}>
@@ -226,7 +257,7 @@ export default function Navigation() {
                 >
                   {theme === 'dark'
                     ? <Sun size={15} strokeWidth={2} style={{ color: 'hsl(42,78%,55%)' }} />
-                    : <Moon size={15} strokeWidth={2} style={{ color: scrolled ? 'hsl(18,18%,28%)' : '#FFF9F3' }} />
+                    : <Moon size={15} strokeWidth={2} style={{ color: navScrolled ? 'hsl(18,18%,28%)' : '#FFF9F3' }} />
                   }
                 </motion.span>
               </AnimatePresence>
@@ -240,57 +271,54 @@ export default function Navigation() {
         <motion.nav
           initial={false}
           animate={
-            scrolled
+            navScrolled
               ? {
-                  maxWidth: 9999,
-                  width: 'calc(100vw - 32px)',
-                  marginTop: 10,
-                  paddingTop: 8,
-                  paddingBottom: 8,
-                  paddingLeft: 16,
-                  paddingRight: 16,
-                  borderRadius: 100,
-                  backgroundColor: 'rgba(255,249,243,0.92)',
-                  backdropFilter: 'blur(28px)',
-                  boxShadow: '0 8px 32px rgba(139,94,60,0.2)',
+                  maxWidth: 9999, width: 'calc(100vw - 32px)', marginTop: 10,
+                  paddingTop: 8, paddingBottom: 8, paddingLeft: 16, paddingRight: 16,
+                  borderRadius: 100, backgroundColor: 'rgba(255,249,243,0.92)',
+                  backdropFilter: 'blur(28px)', boxShadow: '0 8px 32px rgba(139,94,60,0.2)',
                   border: '1.5px solid rgba(255,255,255,0.8)',
                 }
               : {
-                  maxWidth: 9999,
-                  width: '100vw',
-                  marginTop: 0,
-                  paddingTop: 18,
-                  paddingBottom: 18,
-                  paddingLeft: 20,
-                  paddingRight: 20,
-                  borderRadius: 0,
-                  backgroundColor: 'rgba(255,249,243,0)',
-                  backdropFilter: 'blur(0px)',
-                  boxShadow: 'none',
-                  border: '1.5px solid transparent',
+                  maxWidth: 9999, width: '100vw', marginTop: 0,
+                  paddingTop: 18, paddingBottom: 18, paddingLeft: 20, paddingRight: 20,
+                  borderRadius: 0, backgroundColor: 'rgba(255,249,243,0)',
+                  backdropFilter: 'blur(0px)', boxShadow: 'none', border: '1.5px solid transparent',
                 }
           }
           transition={SPRING}
           className="flex items-center justify-between pointer-events-auto"
-          style={{ WebkitBackdropFilter: scrolled ? 'blur(28px)' : 'blur(0px)' }}
+          style={{ WebkitBackdropFilter: navScrolled ? 'blur(28px)' : 'blur(0px)' }}
         >
           <a
             href="#"
-            onClick={e => { e.preventDefault(); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+            onClick={handleLogoClick}
             className="flex items-center gap-2 select-none"
             aria-label="Konjoondu Oorgai home"
           >
             <LogoMark size={26} />
-            <span style={{
-              fontFamily: 'Poppins', fontWeight: 900, fontSize: 15,
-              color: scrolled ? 'hsl(4,60%,44%)' : 'hsl(4,60%,44%)',
-              letterSpacing: '-0.02em',
-            }}>
+            <span style={{ fontFamily: 'Poppins', fontWeight: 900, fontSize: 15,
+              color: 'hsl(4,60%,44%)', letterSpacing: '-0.02em' }}>
               Konjoondu <span style={{ color: 'hsl(18,18%,18%)' }}>Oorgai</span>
             </span>
           </a>
 
           <div className="flex items-center gap-1.5">
+            {/* Mobile cart */}
+            <button
+              onClick={openCart}
+              className="relative p-2 rounded-full"
+              style={{ background: 'rgba(139,94,60,0.1)' }}
+              aria-label="Cart"
+            >
+              <ShoppingCart size={14} style={{ color: 'hsl(4,60%,44%)' }} />
+              {totalItems > 0 && (
+                <span className="absolute -top-0.5 -right-0.5 min-w-[15px] h-[15px] rounded-full flex items-center justify-center text-[9px] font-bold text-white"
+                  style={{ background: 'hsl(4,60%,44%)' }}>
+                  {totalItems}
+                </span>
+              )}
+            </button>
             <button
               onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
               className="p-2 rounded-full"
@@ -309,10 +337,8 @@ export default function Navigation() {
               <AnimatePresence mode="wait" initial={false}>
                 <motion.span
                   key={mobileOpen ? 'x' : 'm'}
-                  initial={{ rotate: -90, opacity: 0 }}
-                  animate={{ rotate: 0, opacity: 1 }}
-                  exit={{ rotate: 90, opacity: 0 }}
-                  transition={{ duration: 0.16 }}
+                  initial={{ rotate: -90, opacity: 0 }} animate={{ rotate: 0, opacity: 1 }}
+                  exit={{ rotate: 90, opacity: 0 }} transition={{ duration: 0.16 }}
                   style={{ display: 'block' }}
                 >
                   {mobileOpen ? <X size={17} /> : <Menu size={17} />}
@@ -342,13 +368,10 @@ export default function Navigation() {
               transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
               className="fixed z-50 md:hidden flex flex-col overflow-hidden"
               style={{
-                top: scrolled ? 66 : 62,
-                left: scrolled ? 16 : 0,
-                right: scrolled ? 16 : 0,
-                borderRadius: scrolled ? 20 : 0,
+                top: navScrolled ? 66 : 62, left: navScrolled ? 16 : 0, right: navScrolled ? 16 : 0,
+                borderRadius: navScrolled ? 20 : 0,
                 background: 'rgba(255,249,243,0.97)',
-                backdropFilter: 'blur(28px)',
-                WebkitBackdropFilter: 'blur(28px)',
+                backdropFilter: 'blur(28px)', WebkitBackdropFilter: 'blur(28px)',
                 boxShadow: '0 20px 60px rgba(139,94,60,0.22)',
                 border: '1px solid rgba(255,255,255,0.8)',
               }}
@@ -360,14 +383,10 @@ export default function Navigation() {
                   initial={{ opacity: 0, x: -10 }}
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: i * 0.04 }}
-                  onClick={() => setMobileOpen(false)}
+                  onClick={e => handleNavClick(e, link)}
                   className="px-6 py-4 text-base font-semibold border-b last:border-b-0"
-                  style={{
-                    color: 'hsl(18,18%,16%)',
-                    borderColor: 'rgba(139,94,60,0.1)',
-                    fontFamily: 'Poppins,sans-serif',
-                    textDecoration: 'none',
-                  }}
+                  style={{ color: 'hsl(18,18%,16%)', borderColor: 'rgba(139,94,60,0.1)',
+                    fontFamily: 'Poppins,sans-serif', textDecoration: 'none' }}
                 >
                   {link.label}
                 </motion.a>
