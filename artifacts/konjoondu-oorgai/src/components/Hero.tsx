@@ -30,7 +30,7 @@ function AnimatedHeadline() {
             style={{
               fontFamily: 'Poppins, sans-serif',
               fontWeight: 900,
-              fontSize: 'clamp(30px, 4.8vw, 64px)',
+              fontSize: 'clamp(42px, 6.8vw, 92px)',
               lineHeight: 1.04,
               letterSpacing: '-0.025em',
               color: line.accent ? 'hsl(42, 82%, 62%)' : '#FFF9F0',
