@@ -1,0 +1,13 @@
+[build]
+install = "corepack enable && corepack prepare pnpm@10.15.0 --activate && pnpm install --no-frozen-lockfile"
+  command = "pnpm --filter @workspace/konjoondu-oorgai run build"
+  publish = "artifacts/konjoondu-oorgai/dist/public"
+
+[build.environment]
+  NODE_VERSION = "20"
+  PNPM_VERSION = "10.15.0"
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
