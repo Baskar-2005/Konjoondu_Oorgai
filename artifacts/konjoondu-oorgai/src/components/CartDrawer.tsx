@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Trash2, Plus, Minus, ShoppingCart, ArrowRight, CheckCircle2, Package } from 'lucide-react';
+import { X, Trash2, Plus, Minus, ShoppingCart, ArrowRight, CheckCircle2, Package, ChevronLeft } from 'lucide-react';
 import { useCart } from '@/context/CartContext';
 import { useToast } from '@/hooks/use-toast';
 
@@ -15,7 +16,7 @@ type Step = 'cart' | 'checkout' | 'confirmed';
 
 const API_BASE = import.meta.env.BASE_URL?.replace(/\/$/, '');
 
-export default function CartDrawer() {
+function CartDrawerContent() {
   const { items, totalAmount, totalItems, isOpen, closeCart, removeItem, updateQuantity, clearCart } = useCart();
   const { toast } = useToast();
   const [step, setStep] = useState<Step>('cart');
@@ -23,12 +24,23 @@ export default function CartDrawer() {
   const [loading, setLoading] = useState(false);
   const [orderId, setOrderId] = useState('');
 
-  function handleClose() {
-    closeCart();
-    if (step === 'confirmed') {
-      setTimeout(() => setStep('cart'), 400);
+  // Reset step to 'cart' whenever drawer closes
+  useEffect(() => {
+    if (!isOpen) {
+      const t = setTimeout(() => setStep('cart'), 350);
+      return () => clearTimeout(t);
     }
-  }
+  }, [isOpen]);
+
+  // Prevent body scroll when open
+  useEffect(() => {
+    if (isOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => { document.body.style.overflow = ''; };
+  }, [isOpen]);
 
   async function placeOrder() {
     if (!form.name.trim() || !form.phone.trim() || !form.address.trim()) {
@@ -57,6 +69,7 @@ export default function CartDrawer() {
         setOrderId(data.orderId);
         setStep('confirmed');
         clearCart();
+        setForm({ name: '', phone: '', email: '', address: '' });
       } else {
         toast({ title: 'Order failed', description: data.message, variant: 'destructive' });
       }
@@ -71,101 +84,171 @@ export default function CartDrawer() {
     <AnimatePresence>
       {isOpen && (
         <>
-          {/* Backdrop */}
+          {/* ── Full-screen backdrop ── */}
           <motion.div
             key="cart-backdrop"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[150] bg-black/50 backdrop-blur-sm"
-            onClick={handleClose}
+            transition={{ duration: 0.25 }}
+            style={{
+              position: 'fixed',
+              inset: 0,
+              zIndex: 9998,
+              background: 'rgba(0,0,0,0.55)',
+              backdropFilter: 'blur(4px)',
+              WebkitBackdropFilter: 'blur(4px)',
+            }}
+            onClick={closeCart}
           />
 
-          {/* Drawer */}
+          {/* ── Drawer panel ── */}
           <motion.div
-            key="cart-drawer"
+            key="cart-panel"
             initial={{ x: '100%' }}
             animate={{ x: 0 }}
             exit={{ x: '100%' }}
-            transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-            className="fixed top-0 right-0 bottom-0 z-[151] w-full max-w-md flex flex-col shadow-2xl"
-            style={{ background: 'var(--background)' }}
+            transition={{ type: 'spring', stiffness: 320, damping: 32, mass: 0.9 }}
+            style={{
+              position: 'fixed',
+              top: 0,
+              right: 0,
+              bottom: 0,
+              width: '100%',
+              maxWidth: 440,
+              zIndex: 9999,
+              display: 'flex',
+              flexDirection: 'column',
+              background: 'var(--background)',
+              boxShadow: '-8px 0 40px rgba(0,0,0,0.18)',
+            }}
           >
-            {/* Header */}
-            <div className="flex items-center justify-between px-6 py-5 border-b"
-              style={{ borderColor: 'rgba(139,94,60,0.12)' }}>
-              <div className="flex items-center gap-3">
-                <ShoppingCart size={20} style={{ color: 'hsl(4,60%,44%)' }} />
-                <h2 className="text-lg font-bold">
-                  {step === 'cart' ? `Your Cart (${totalItems})` :
-                   step === 'checkout' ? 'Checkout' : 'Order Confirmed!'}
-                </h2>
+            {/* ── Header ── */}
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              padding: '20px 24px',
+              borderBottom: '1px solid rgba(139,94,60,0.12)',
+              flexShrink: 0,
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                {step === 'checkout' && (
+                  <button
+                    onClick={() => setStep('cart')}
+                    style={{
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      width: 32, height: 32, borderRadius: '50%',
+                      background: 'rgba(181,58,46,0.08)', border: 'none',
+                      cursor: 'pointer', marginRight: 4,
+                    }}
+                  >
+                    <ChevronLeft size={16} color="hsl(4,60%,44%)" />
+                  </button>
+                )}
+                <ShoppingCart size={20} color="hsl(4,60%,44%)" />
+                <span style={{ fontSize: 18, fontWeight: 700 }}>
+                  {step === 'cart' && `Your Cart${totalItems > 0 ? ` (${totalItems})` : ''}`}
+                  {step === 'checkout' && 'Checkout'}
+                  {step === 'confirmed' && 'Order Placed!'}
+                </span>
               </div>
               <button
-                onClick={handleClose}
-                className="p-2 rounded-full transition-colors hover:bg-muted"
+                onClick={closeCart}
+                style={{
+                  width: 34, height: 34, borderRadius: '50%', border: 'none',
+                  background: 'rgba(0,0,0,0.06)', cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}
                 aria-label="Close cart"
               >
-                <X size={18} />
+                <X size={16} />
               </button>
             </div>
 
-            {/* Content */}
-            <div className="flex-1 overflow-y-auto">
+            {/* ── Scrollable body ── */}
+            <div style={{ flex: 1, overflowY: 'auto', padding: '0' }}>
+
               {/* CART STEP */}
               {step === 'cart' && (
                 <>
                   {items.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center h-full gap-4 p-8 text-center">
-                      <div className="w-20 h-20 rounded-full flex items-center justify-center"
-                        style={{ background: 'rgba(181,58,46,0.08)' }}>
-                        <ShoppingCart size={32} style={{ color: 'hsl(4,60%,44%)' }} />
+                    <div style={{
+                      display: 'flex', flexDirection: 'column', alignItems: 'center',
+                      justifyContent: 'center', height: '100%', padding: '60px 32px',
+                      textAlign: 'center', gap: 16,
+                    }}>
+                      <div style={{
+                        width: 80, height: 80, borderRadius: '50%',
+                        background: 'rgba(181,58,46,0.08)',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      }}>
+                        <ShoppingCart size={32} color="hsl(4,60%,44%)" />
                       </div>
-                      <p className="font-semibold text-lg">Your cart is empty</p>
-                      <p className="text-sm text-muted-foreground">
-                        Add some handcrafted pickles to get started!
-                      </p>
+                      <div>
+                        <p style={{ fontWeight: 700, fontSize: 18, marginBottom: 6 }}>Your cart is empty</p>
+                        <p style={{ color: 'hsl(var(--muted-foreground))', fontSize: 14 }}>
+                          Add some handcrafted pickles to get started!
+                        </p>
+                      </div>
                     </div>
                   ) : (
-                    <div className="p-4 flex flex-col gap-3">
+                    <div style={{ padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 12 }}>
                       {items.map(item => (
                         <div key={`${item.productId}-${item.size}`}
-                          className="flex gap-3 p-3 rounded-2xl border"
-                          style={{ borderColor: 'rgba(139,94,60,0.12)', background: 'rgba(181,58,46,0.03)' }}>
-                          <img
-                            src={item.image}
-                            alt={item.productName}
-                            className="w-16 h-16 rounded-xl object-cover flex-shrink-0"
-                          />
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-start justify-between gap-2">
-                              <p className="font-semibold text-sm leading-tight">{item.productName}</p>
+                          style={{
+                            display: 'flex', gap: 12, padding: 14, borderRadius: 16,
+                            border: '1px solid rgba(139,94,60,0.1)',
+                            background: 'rgba(181,58,46,0.025)',
+                          }}>
+                          {/* Image */}
+                          <img src={item.image} alt={item.productName}
+                            style={{ width: 68, height: 68, borderRadius: 12, objectFit: 'cover', flexShrink: 0 }} />
+
+                          {/* Details */}
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8, marginBottom: 2 }}>
+                              <p style={{ fontWeight: 700, fontSize: 14, lineHeight: '1.3' }}>{item.productName}</p>
                               <button
                                 onClick={() => removeItem(item.productId, item.size)}
-                                className="p-1 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors flex-shrink-0"
+                                style={{
+                                  flexShrink: 0, padding: '4px', borderRadius: 8, border: 'none',
+                                  background: 'transparent', cursor: 'pointer', color: 'hsl(var(--muted-foreground))',
+                                  display: 'flex',
+                                }}
+                                title="Remove"
                               >
-                                <Trash2 size={13} />
+                                <Trash2 size={14} />
                               </button>
                             </div>
-                            <p className="text-xs text-muted-foreground mb-2">{item.size}</p>
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center gap-1.5 rounded-lg border p-0.5"
-                                style={{ borderColor: 'rgba(139,94,60,0.2)' }}>
+                            <p style={{ fontSize: 12, color: 'hsl(var(--muted-foreground))', marginBottom: 10 }}>
+                              {item.size} · ₹{item.price} each
+                            </p>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                              {/* Qty stepper */}
+                              <div style={{
+                                display: 'flex', alignItems: 'center', borderRadius: 10,
+                                border: '1px solid rgba(139,94,60,0.2)', overflow: 'hidden',
+                              }}>
                                 <button
                                   onClick={() => updateQuantity(item.productId, item.size, item.quantity - 1)}
-                                  className="p-1 rounded hover:bg-muted"
+                                  style={{ width: 30, height: 28, border: 'none', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                                 >
-                                  <Minus size={11} />
+                                  <Minus size={12} />
                                 </button>
-                                <span className="w-5 text-center text-sm font-bold">{item.quantity}</span>
+                                <span style={{ width: 28, textAlign: 'center', fontWeight: 700, fontSize: 13 }}>
+                                  {item.quantity}
+                                </span>
                                 <button
                                   onClick={() => updateQuantity(item.productId, item.size, item.quantity + 1)}
-                                  className="p-1 rounded hover:bg-muted"
+                                  style={{ width: 30, height: 28, border: 'none', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                                 >
-                                  <Plus size={11} />
+                                  <Plus size={12} />
                                 </button>
                               </div>
-                              <span className="font-bold text-sm" style={{ color: 'hsl(4,60%,44%)' }}>
+
+                              {/* Line total */}
+                              <span style={{ fontWeight: 800, fontSize: 15, color: 'hsl(4,60%,44%)' }}>
                                 ₹{item.price * item.quantity}
                               </span>
                             </div>
@@ -179,8 +262,10 @@ export default function CartDrawer() {
 
               {/* CHECKOUT STEP */}
               {step === 'checkout' && (
-                <div className="p-6 flex flex-col gap-4">
-                  <p className="text-sm text-muted-foreground">Fill in your details and we'll confirm your order.</p>
+                <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 16 }}>
+                  <p style={{ fontSize: 13, color: 'hsl(var(--muted-foreground))' }}>
+                    Fill in your details and we'll confirm your order within 24 hours.
+                  </p>
 
                   {[
                     { key: 'name', label: 'Full Name *', type: 'text', placeholder: 'Your name' },
@@ -188,54 +273,59 @@ export default function CartDrawer() {
                     { key: 'email', label: 'Email (optional)', type: 'email', placeholder: 'you@email.com' },
                   ].map(f => (
                     <div key={f.key}>
-                      <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground block mb-1.5">
+                      <label style={{ display: 'block', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'hsl(var(--muted-foreground))', marginBottom: 6 }}>
                         {f.label}
                       </label>
                       <input
-                        type={f.type}
-                        placeholder={f.placeholder}
+                        type={f.type} placeholder={f.placeholder}
                         value={form[f.key as keyof CheckoutForm]}
                         onChange={e => setForm(prev => ({ ...prev, [f.key]: e.target.value }))}
-                        className="w-full px-4 py-3 rounded-xl border text-sm outline-none transition-colors"
                         style={{
-                          borderColor: 'rgba(139,94,60,0.2)',
-                          background: 'transparent',
+                          width: '100%', padding: '10px 14px', borderRadius: 12, fontSize: 14,
+                          border: '1.5px solid rgba(139,94,60,0.2)', background: 'transparent',
+                          outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit',
+                          color: 'inherit',
                         }}
-                        onFocus={e => e.target.style.borderColor = 'hsl(4,60%,44%)'}
-                        onBlur={e => e.target.style.borderColor = 'rgba(139,94,60,0.2)'}
+                        onFocus={e => { e.target.style.borderColor = 'hsl(4,60%,44%)'; }}
+                        onBlur={e => { e.target.style.borderColor = 'rgba(139,94,60,0.2)'; }}
                       />
                     </div>
                   ))}
 
                   <div>
-                    <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground block mb-1.5">
+                    <label style={{ display: 'block', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'hsl(var(--muted-foreground))', marginBottom: 6 }}>
                       Delivery Address *
                     </label>
                     <textarea
                       placeholder="Full delivery address with pincode"
-                      rows={3}
-                      value={form.address}
+                      rows={3} value={form.address}
                       onChange={e => setForm(prev => ({ ...prev, address: e.target.value }))}
-                      className="w-full px-4 py-3 rounded-xl border text-sm outline-none transition-colors resize-none"
-                      style={{ borderColor: 'rgba(139,94,60,0.2)', background: 'transparent' }}
-                      onFocus={e => e.target.style.borderColor = 'hsl(4,60%,44%)'}
-                      onBlur={e => e.target.style.borderColor = 'rgba(139,94,60,0.2)'}
+                      style={{
+                        width: '100%', padding: '10px 14px', borderRadius: 12, fontSize: 14,
+                        border: '1.5px solid rgba(139,94,60,0.2)', background: 'transparent',
+                        outline: 'none', resize: 'none', boxSizing: 'border-box', fontFamily: 'inherit',
+                        color: 'inherit',
+                      }}
+                      onFocus={e => { e.target.style.borderColor = 'hsl(4,60%,44%)'; }}
+                      onBlur={e => { e.target.style.borderColor = 'rgba(139,94,60,0.2)'; }}
                     />
                   </div>
 
-                  {/* Order summary */}
-                  <div className="rounded-2xl p-4 mt-2" style={{ background: 'rgba(181,58,46,0.05)', border: '1px solid rgba(181,58,46,0.1)' }}>
-                    <p className="text-xs font-bold uppercase tracking-wider mb-3 text-muted-foreground">Order Summary</p>
+                  {/* Summary */}
+                  <div style={{ borderRadius: 14, padding: '14px 16px', background: 'rgba(181,58,46,0.05)', border: '1px solid rgba(181,58,46,0.1)' }}>
+                    <p style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'hsl(var(--muted-foreground))', marginBottom: 10 }}>
+                      Order Summary
+                    </p>
                     {items.map(item => (
-                      <div key={`${item.productId}-${item.size}`} className="flex justify-between text-sm mb-1.5">
-                        <span className="text-foreground/70">{item.productName} ({item.size}) × {item.quantity}</span>
-                        <span className="font-semibold">₹{item.price * item.quantity}</span>
+                      <div key={`${item.productId}-${item.size}`}
+                        style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 6, color: 'hsl(var(--foreground))' }}>
+                        <span style={{ opacity: 0.75 }}>{item.productName} ({item.size}) × {item.quantity}</span>
+                        <span style={{ fontWeight: 600 }}>₹{item.price * item.quantity}</span>
                       </div>
                     ))}
-                    <div className="border-t mt-2 pt-2 flex justify-between font-bold"
-                      style={{ borderColor: 'rgba(139,94,60,0.15)' }}>
+                    <div style={{ borderTop: '1px solid rgba(139,94,60,0.15)', marginTop: 8, paddingTop: 8, display: 'flex', justifyContent: 'space-between', fontWeight: 800 }}>
                       <span>Total</span>
-                      <span style={{ color: 'hsl(4,60%,44%)' }}>₹{totalAmount}</span>
+                      <span style={{ color: 'hsl(4,60%,44%)', fontSize: 17 }}>₹{totalAmount}</span>
                     </div>
                   </div>
                 </div>
@@ -243,51 +333,70 @@ export default function CartDrawer() {
 
               {/* CONFIRMED STEP */}
               {step === 'confirmed' && (
-                <div className="flex flex-col items-center justify-center h-full gap-5 p-8 text-center">
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '60px 32px', textAlign: 'center', gap: 20, minHeight: 400 }}>
                   <motion.div
-                    initial={{ scale: 0 }}
-                    animate={{ scale: 1 }}
-                    transition={{ type: 'spring', stiffness: 200, delay: 0.1 }}
-                    className="w-24 h-24 rounded-full flex items-center justify-center"
-                    style={{ background: 'rgba(34,197,94,0.12)' }}
+                    initial={{ scale: 0, rotate: -20 }} animate={{ scale: 1, rotate: 0 }}
+                    transition={{ type: 'spring', stiffness: 220, delay: 0.1 }}
+                    style={{
+                      width: 88, height: 88, borderRadius: '50%',
+                      background: 'rgba(34,197,94,0.12)',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    }}
                   >
-                    <CheckCircle2 size={48} className="text-green-500" />
+                    <CheckCircle2 size={48} color="#22c55e" />
                   </motion.div>
                   <div>
-                    <h3 className="text-2xl font-bold mb-2">Order Placed! 🎉</h3>
-                    <p className="text-sm text-muted-foreground mb-3">
-                      We've received your order and will contact you within 24 hours to confirm.
+                    <h3 style={{ fontSize: 22, fontWeight: 800, marginBottom: 8 }}>Order Placed! 🎉</h3>
+                    <p style={{ fontSize: 14, color: 'hsl(var(--muted-foreground))', marginBottom: 16, lineHeight: 1.6 }}>
+                      We've received your order and will contact you within 24 hours to confirm delivery.
                     </p>
-                    <div className="inline-flex items-center gap-2 px-4 py-2 rounded-xl"
-                      style={{ background: 'rgba(181,58,46,0.08)', color: 'hsl(4,60%,44%)' }}>
+                    <div style={{
+                      display: 'inline-flex', alignItems: 'center', gap: 8,
+                      padding: '8px 18px', borderRadius: 12,
+                      background: 'rgba(181,58,46,0.08)', color: 'hsl(4,60%,44%)',
+                    }}>
                       <Package size={16} />
-                      <span className="font-bold tracking-wide text-sm">{orderId}</span>
+                      <span style={{ fontWeight: 800, letterSpacing: '0.05em', fontSize: 14 }}>{orderId}</span>
                     </div>
                   </div>
-                  <p className="text-xs text-muted-foreground">
-                    Payment will be collected at delivery. We'll reach out on your phone number.
+                  <p style={{ fontSize: 12, color: 'hsl(var(--muted-foreground))' }}>
+                    Payment collected at delivery. We'll call you to confirm.
                   </p>
                 </div>
               )}
             </div>
 
-            {/* Footer */}
+            {/* ── Footer / CTA ── */}
             {step !== 'confirmed' && (
-              <div className="p-4 border-t" style={{ borderColor: 'rgba(139,94,60,0.12)' }}>
+              <div style={{
+                padding: '16px 20px',
+                borderTop: '1px solid rgba(139,94,60,0.12)',
+                flexShrink: 0,
+                background: 'var(--background)',
+              }}>
                 {step === 'cart' && (
                   <>
-                    <div className="flex justify-between items-center mb-4 px-1">
-                      <span className="text-sm text-muted-foreground">Subtotal</span>
-                      <span className="text-xl font-bold" style={{ color: 'hsl(4,60%,44%)' }}>₹{totalAmount}</span>
-                    </div>
+                    {items.length > 0 && (
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, padding: '0 4px' }}>
+                        <span style={{ fontSize: 14, color: 'hsl(var(--muted-foreground))' }}>
+                          {totalItems} item{totalItems !== 1 ? 's' : ''}
+                        </span>
+                        <span style={{ fontSize: 22, fontWeight: 800, color: 'hsl(4,60%,44%)' }}>
+                          ₹{totalAmount}
+                        </span>
+                      </div>
+                    )}
                     <button
                       onClick={() => setStep('checkout')}
                       disabled={items.length === 0}
-                      className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl font-bold text-base transition-all disabled:opacity-40 disabled:cursor-not-allowed"
                       style={{
-                        background: 'linear-gradient(135deg, hsl(4,65%,48%), hsl(4,60%,38%))',
-                        color: '#FFF9F0',
+                        width: '100%', padding: '14px', borderRadius: 16, border: 'none',
+                        background: items.length === 0 ? 'rgba(181,58,46,0.2)' : 'linear-gradient(135deg, hsl(4,65%,48%), hsl(4,60%,38%))',
+                        color: items.length === 0 ? 'rgba(255,249,240,0.5)' : '#FFF9F0',
+                        fontWeight: 700, fontSize: 15, cursor: items.length === 0 ? 'not-allowed' : 'pointer',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
                         boxShadow: items.length > 0 ? '0 6px 20px rgba(181,58,46,0.3)' : 'none',
+                        fontFamily: 'inherit',
                       }}
                     >
                       Proceed to Checkout
@@ -296,36 +405,31 @@ export default function CartDrawer() {
                   </>
                 )}
                 {step === 'checkout' && (
-                  <div className="flex gap-3">
-                    <button
-                      onClick={() => setStep('cart')}
-                      className="px-4 py-3.5 rounded-2xl font-semibold text-sm border transition-colors"
-                      style={{ borderColor: 'rgba(139,94,60,0.2)' }}
-                    >
-                      Back
-                    </button>
-                    <button
-                      onClick={placeOrder}
-                      disabled={loading}
-                      className="flex-1 flex items-center justify-center gap-2 py-3.5 rounded-2xl font-bold text-base transition-all disabled:opacity-60"
-                      style={{
-                        background: 'linear-gradient(135deg, hsl(4,65%,48%), hsl(4,60%,38%))',
-                        color: '#FFF9F0',
-                        boxShadow: '0 6px 20px rgba(181,58,46,0.3)',
-                      }}
-                    >
-                      {loading ? 'Placing Order…' : 'Place Order'}
-                    </button>
-                  </div>
+                  <button
+                    onClick={placeOrder}
+                    disabled={loading}
+                    style={{
+                      width: '100%', padding: '14px', borderRadius: 16, border: 'none',
+                      background: loading ? 'rgba(181,58,46,0.4)' : 'linear-gradient(135deg, hsl(4,65%,48%), hsl(4,60%,38%))',
+                      color: '#FFF9F0', fontWeight: 700, fontSize: 15, cursor: loading ? 'not-allowed' : 'pointer',
+                      boxShadow: '0 6px 20px rgba(181,58,46,0.3)',
+                      fontFamily: 'inherit',
+                    }}
+                  >
+                    {loading ? 'Placing Order…' : `Place Order · ₹${totalAmount}`}
+                  </button>
                 )}
               </div>
             )}
             {step === 'confirmed' && (
-              <div className="p-4 border-t" style={{ borderColor: 'rgba(139,94,60,0.12)' }}>
+              <div style={{ padding: '16px 20px', borderTop: '1px solid rgba(139,94,60,0.12)', flexShrink: 0, background: 'var(--background)' }}>
                 <button
-                  onClick={handleClose}
-                  className="w-full py-3.5 rounded-2xl font-bold text-base"
-                  style={{ background: 'hsl(4,60%,44%)', color: '#FFF9F0' }}
+                  onClick={closeCart}
+                  style={{
+                    width: '100%', padding: '14px', borderRadius: 16, border: 'none',
+                    background: 'hsl(4,60%,44%)', color: '#FFF9F0',
+                    fontWeight: 700, fontSize: 15, cursor: 'pointer', fontFamily: 'inherit',
+                  }}
                 >
                   Continue Shopping
                 </button>
@@ -336,4 +440,11 @@ export default function CartDrawer() {
       )}
     </AnimatePresence>
   );
+}
+
+export default function CartDrawer() {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => { setMounted(true); }, []);
+  if (!mounted) return null;
+  return createPortal(<CartDrawerContent />, document.body);
 }

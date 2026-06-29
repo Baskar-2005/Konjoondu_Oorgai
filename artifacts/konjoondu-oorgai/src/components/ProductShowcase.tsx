@@ -1,9 +1,10 @@
 import React, { useRef, useState } from 'react';
-import { motion, useInView } from 'framer-motion';
-import { Flame, ShoppingCart, ArrowRight } from 'lucide-react';
+import { motion, useInView, AnimatePresence } from 'framer-motion';
+import { Flame, ShoppingCart, ArrowRight, Plus, Minus, Eye } from 'lucide-react';
 import { useLocation } from 'wouter';
 import { products } from '@/data/products';
-import type { Product } from '@/data/products';
+import type { Product, ProductSize } from '@/data/products';
+import { useCart } from '@/context/CartContext';
 import ProductModal from '@/components/ProductModal';
 
 export default function ProductShowcase() {
@@ -14,10 +15,10 @@ export default function ProductShowcase() {
   const featured = products.slice(0, 8);
 
   return (
-    <section id="products" className="py-32 relative bg-muted/30">
+    <section id="products" className="py-28 relative bg-muted/30">
       <div className="container mx-auto px-6">
         <motion.div
-          className="text-center mb-20"
+          className="text-center mb-16"
           initial={{ opacity: 0, y: 50 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, margin: '-100px' }}
@@ -27,26 +28,25 @@ export default function ProductShowcase() {
             style={{ background: 'rgba(181,58,46,0.08)', color: 'hsl(4,60%,44%)', borderColor: 'rgba(181,58,46,0.2)' }}>
             🔴 Non-Veg Only
           </span>
-          <h2 className="text-4xl md:text-5xl font-bold mb-6">Our Handcrafted Range</h2>
+          <h2 className="text-4xl md:text-5xl font-bold mb-5">Our Handcrafted Range</h2>
           <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
             Small batches. Bold flavours. Prepared with the freshest meats and seafood — exactly how our grandmothers taught us.
           </p>
         </motion.div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
           {featured.map((product, i) => (
             <ProductCard
               key={product.id}
               product={product}
               index={i}
-              onOpen={() => setSelectedProduct(product)}
+              onViewDetails={() => setSelectedProduct(product)}
             />
           ))}
         </div>
 
-        {/* View all CTA */}
         <motion.div
-          className="text-center mt-16"
+          className="text-center mt-14"
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
@@ -54,7 +54,7 @@ export default function ProductShowcase() {
         >
           <button
             onClick={() => navigate('/products')}
-            className="inline-flex items-center gap-2 px-8 py-4 rounded-2xl font-bold text-base transition-all duration-300 hover:scale-105"
+            className="inline-flex items-center gap-2.5 px-8 py-4 rounded-2xl font-bold text-base transition-all duration-300 hover:scale-105"
             style={{
               background: 'linear-gradient(135deg, hsl(4,65%,48%), hsl(4,60%,38%))',
               color: '#FFF9F0',
@@ -72,10 +72,36 @@ export default function ProductShowcase() {
   );
 }
 
-function ProductCard({ product, index, onOpen }: { product: Product; index: number; onOpen: () => void }) {
+function ProductCard({
+  product, index, onViewDetails,
+}: {
+  product: Product;
+  index: number;
+  onViewDetails: () => void;
+}) {
   const cardRef = useRef(null);
   const isInView = useInView(cardRef, { once: true, margin: '-50px' });
-  const lowestPrice = Math.min(...product.sizes.map(s => s.price));
+  const { addItem } = useCart();
+
+  const [selectedSizeIdx, setSelectedSizeIdx] = useState(0);
+  const [qty, setQty] = useState(1);
+  const [added, setAdded] = useState(false);
+
+  const selectedSize: ProductSize = product.sizes[selectedSizeIdx];
+
+  function handleAdd(e: React.MouseEvent) {
+    e.stopPropagation();
+    addItem({
+      productId: product.id,
+      productName: product.name,
+      size: selectedSize.label,
+      price: selectedSize.price,
+      image: product.image,
+      tag: product.tag,
+    }, qty);
+    setAdded(true);
+    setTimeout(() => setAdded(false), 1800);
+  }
 
   return (
     <motion.div
@@ -83,69 +109,128 @@ function ProductCard({ product, index, onOpen }: { product: Product; index: numb
       initial={{ opacity: 0, y: 50 }}
       animate={isInView ? { opacity: 1, y: 0 } : { opacity: 0, y: 50 }}
       transition={{ duration: 0.6, delay: (index % 4) * 0.1 }}
-      whileHover={{ y: -8 }}
-      className="glass rounded-3xl overflow-hidden group flex flex-col h-full cursor-pointer"
-      onClick={onOpen}
+      className="rounded-2xl overflow-hidden flex flex-col border shadow-sm hover:shadow-md transition-shadow duration-300"
+      style={{ borderColor: 'rgba(139,94,60,0.12)', background: 'var(--background)' }}
     >
       {/* Image */}
-      <div className="relative h-64 overflow-hidden bg-muted">
+      <div className="relative h-52 overflow-hidden bg-muted flex-shrink-0 group">
         <img
           src={product.image}
           alt={product.name}
-          className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+          className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-        <div className="absolute top-4 right-4 bg-background/90 backdrop-blur px-3 py-1 rounded-full text-sm font-bold shadow-lg">
-          from ₹{lowestPrice}
-        </div>
-        <div className="absolute top-4 left-4 bg-red-600/90 backdrop-blur text-white px-2.5 py-1 rounded-full text-xs font-bold shadow-lg">
+        <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent" />
+
+        {/* Tag */}
+        <div className="absolute top-3 left-3 px-2.5 py-0.5 rounded-full text-[11px] font-bold text-white shadow"
+          style={{ background: 'hsl(4,60%,44%)' }}>
           {product.tag}
         </div>
-        {/* Hover overlay */}
-        <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-          <button
-            onClick={e => { e.stopPropagation(); onOpen(); }}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-sm shadow-lg"
-            style={{ background: 'rgba(255,249,240,0.95)', color: 'hsl(4,60%,38%)' }}
-          >
-            <ShoppingCart size={15} />
-            View & Order
-          </button>
+
+        {/* View details eye */}
+        <button
+          onClick={e => { e.stopPropagation(); onViewDetails(); }}
+          className="absolute top-3 right-3 p-1.5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-200 shadow"
+          style={{ background: 'rgba(255,255,255,0.9)', color: 'hsl(4,60%,38%)' }}
+          title="View details"
+        >
+          <Eye size={13} />
+        </button>
+
+        {/* Spice flames */}
+        <div className="absolute bottom-3 left-3 flex gap-0.5">
+          {[...Array(5)].map((_, i) => (
+            <Flame key={i} size={12}
+              className={i < product.spiceLevel ? 'fill-orange-400 text-orange-400' : 'text-white/30'} />
+          ))}
         </div>
       </div>
 
-      {/* Details */}
-      <div className={`p-6 flex-1 flex flex-col ${product.color}`}>
-        <h3 className="text-xl font-bold mb-2">{product.name}</h3>
-        <p className="text-muted-foreground text-sm mb-4 flex-1 line-clamp-2">{product.description}</p>
+      {/* Body */}
+      <div className="p-4 flex flex-col flex-1">
+        <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-0.5">
+          {product.category}
+        </p>
+        <h3 className="text-base font-bold mb-1 leading-tight">{product.name}</h3>
+        <p className="text-xs text-muted-foreground line-clamp-2 mb-4 leading-relaxed flex-1">
+          {product.description}
+        </p>
 
-        {/* Size / price chips */}
-        <div className="flex gap-1.5 flex-wrap mb-4">
-          {product.sizes.map(s => (
-            <span key={s.label}
-              className="px-2.5 py-1 rounded-lg text-xs font-semibold border"
-              style={{ borderColor: 'rgba(139,94,60,0.2)', color: 'hsl(18,18%,30%)' }}>
-              {s.label} · ₹{s.price}
-            </span>
-          ))}
-        </div>
-
-        {/* Spice + CTA */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-1">
-            <span className="text-xs font-medium mr-1 text-foreground/60">Spice:</span>
-            {[...Array(5)].map((_, i) => (
-              <Flame key={i} size={15}
-                className={i < product.spiceLevel ? 'fill-primary text-primary' : 'text-muted-foreground/30'} />
+        {/* Size selector */}
+        <div className="mb-3">
+          <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1.5">Size</p>
+          <div className="flex gap-1.5 flex-wrap">
+            {product.sizes.map((s, idx) => (
+              <button
+                key={s.label}
+                onClick={e => { e.stopPropagation(); setSelectedSizeIdx(idx); setQty(1); }}
+                className="px-2.5 py-1 rounded-lg text-xs font-semibold border transition-all duration-150"
+                style={{
+                  borderColor: selectedSizeIdx === idx ? 'hsl(4,60%,44%)' : 'rgba(139,94,60,0.2)',
+                  background: selectedSizeIdx === idx ? 'rgba(181,58,46,0.1)' : 'transparent',
+                  color: selectedSizeIdx === idx ? 'hsl(4,60%,44%)' : 'hsl(18,18%,35%)',
+                  fontWeight: selectedSizeIdx === idx ? 700 : 600,
+                }}
+              >
+                {s.label}
+              </button>
             ))}
           </div>
-          <button
-            onClick={e => { e.stopPropagation(); onOpen(); }}
-            className="px-4 py-2 rounded-xl text-sm font-bold transition-all"
-            style={{ background: 'hsl(4,60%,44%)', color: '#FFF9F0' }}
-          >
-            Order
-          </button>
+        </div>
+
+        {/* Price */}
+        <div className="flex items-baseline gap-1.5 mb-4">
+          <span className="text-2xl font-bold" style={{ color: 'hsl(4,60%,44%)' }}>
+            ₹{selectedSize.price}
+          </span>
+          <span className="text-xs text-muted-foreground">/ {selectedSize.label}</span>
+        </div>
+
+        {/* Qty + Add to Cart */}
+        <div className="flex items-center gap-2 mt-auto">
+          <div className="flex items-center rounded-xl border overflow-hidden flex-shrink-0"
+            style={{ borderColor: 'rgba(139,94,60,0.2)' }}>
+            <button
+              onClick={e => { e.stopPropagation(); setQty(q => Math.max(1, q - 1)); }}
+              className="w-8 h-9 flex items-center justify-center transition-colors hover:bg-muted"
+            >
+              <Minus size={13} />
+            </button>
+            <span className="w-8 h-9 flex items-center justify-center text-sm font-bold border-x"
+              style={{ borderColor: 'rgba(139,94,60,0.15)' }}>
+              {qty}
+            </span>
+            <button
+              onClick={e => { e.stopPropagation(); setQty(q => q + 1); }}
+              className="w-8 h-9 flex items-center justify-center transition-colors hover:bg-muted"
+            >
+              <Plus size={13} />
+            </button>
+          </div>
+
+          <AnimatePresence mode="wait">
+            <motion.button
+              key={added ? 'added' : 'add'}
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              transition={{ duration: 0.15 }}
+              onClick={handleAdd}
+              className="flex-1 h-9 flex items-center justify-center gap-1.5 rounded-xl text-xs font-bold transition-all active:scale-95"
+              style={{
+                background: added
+                  ? 'hsl(140,60%,38%)'
+                  : 'linear-gradient(135deg, hsl(4,65%,48%), hsl(4,60%,38%))',
+                color: '#FFF9F0',
+                boxShadow: added
+                  ? '0 4px 14px rgba(34,197,94,0.25)'
+                  : '0 4px 14px rgba(181,58,46,0.25)',
+              }}
+            >
+              <ShoppingCart size={13} />
+              {added ? 'Added ✓' : `Add · ₹${selectedSize.price * qty}`}
+            </motion.button>
+          </AnimatePresence>
         </div>
       </div>
     </motion.div>

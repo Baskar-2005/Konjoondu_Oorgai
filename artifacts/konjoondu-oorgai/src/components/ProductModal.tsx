@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Flame, ShoppingCart, Plus, Minus, Star } from 'lucide-react';
+import { X, Flame, ShoppingCart, Plus, Minus, Star, ChevronRight } from 'lucide-react';
 import type { Product } from '@/data/products';
 import { useCart } from '@/context/CartContext';
 import { useToast } from '@/hooks/use-toast';
@@ -10,14 +11,12 @@ interface ProductModalProps {
   onClose: () => void;
 }
 
-/** Inner modal rendered only when product is guaranteed non-null */
-function ModalContent({ product, onClose }: { product: Product; onClose: () => void }) {
+function ModalInner({ product, onClose }: { product: Product; onClose: () => void }) {
   const { addItem } = useCart();
   const { toast } = useToast();
   const [selectedSizeIdx, setSelectedSizeIdx] = useState(0);
   const [quantity, setQuantity] = useState(1);
 
-  // Reset when product changes
   React.useEffect(() => {
     setSelectedSizeIdx(0);
     setQuantity(1);
@@ -25,232 +24,221 @@ function ModalContent({ product, onClose }: { product: Product; onClose: () => v
 
   const selectedSize = product.sizes[selectedSizeIdx];
 
-  function handleAddToCart() {
-    addItem(
-      {
-        productId: product.id,
-        productName: product.name,
-        size: selectedSize.label,
-        price: selectedSize.price,
-        image: product.image,
-        tag: product.tag,
-      },
-      quantity,
-    );
-    toast({
-      title: 'Added to cart!',
-      description: `${product.name} (${selectedSize.label}) × ${quantity}`,
-    });
+  function handleAdd() {
+    addItem({
+      productId: product.id,
+      productName: product.name,
+      size: selectedSize.label,
+      price: selectedSize.price,
+      image: product.image,
+      tag: product.tag,
+    }, quantity);
+    toast({ title: 'Added to cart!', description: `${product.name} (${selectedSize.label}) × ${quantity}` });
     onClose();
   }
 
   return (
-    <div className="flex flex-col md:flex-row">
-      {/* Image */}
-      <div className="relative md:w-2/5 h-64 md:h-auto flex-shrink-0 overflow-hidden rounded-t-3xl md:rounded-l-3xl md:rounded-tr-none">
-        <img
-          src={product.image}
-          alt={product.name}
-          className="w-full h-full object-cover"
-        />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent" />
+    <>
+      {/* Backdrop */}
+      <motion.div
+        key="modal-backdrop"
+        initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+        transition={{ duration: 0.2 }}
+        style={{ position: 'fixed', inset: 0, zIndex: 9990, background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(6px)', WebkitBackdropFilter: 'blur(6px)' }}
+        onClick={onClose}
+      />
+
+      {/* Modal — centred, max 680px wide */}
+      <motion.div
+        key="modal-panel"
+        initial={{ opacity: 0, y: 32, scale: 0.97 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        exit={{ opacity: 0, y: 24, scale: 0.97 }}
+        transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
+        style={{
+          position: 'fixed', inset: 0, zIndex: 9991,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          padding: '16px',
+          pointerEvents: 'none',
+        }}
+      >
         <div
-          className="absolute top-4 left-4 px-2.5 py-1 rounded-full text-xs font-bold text-white"
-          style={{ background: 'hsl(4,60%,44%)' }}
-        >
-          {product.tag}
-        </div>
-        <div className="absolute bottom-4 left-4 right-4">
-          <div className="flex gap-0.5 items-center">
-            {[...Array(5)].map((_, i) => (
-              <Star
-                key={i}
-                size={12}
-                className={i < 4 ? 'fill-yellow-400 text-yellow-400' : 'text-white/40'}
-              />
-            ))}
-            <span className="text-white/70 text-xs ml-1 font-medium">4.8</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Details */}
-      <div className="flex-1 p-6 md:p-8 flex flex-col">
-        <div className="mb-1">
-          <span className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
-            {product.category}
-          </span>
-        </div>
-        <h2 className="text-2xl font-bold mb-3">{product.name}</h2>
-
-        {/* Spice level */}
-        <div className="flex items-center gap-1.5 mb-4">
-          <span className="text-xs font-medium text-muted-foreground">Spice level:</span>
-          <div className="flex gap-0.5">
-            {[...Array(5)].map((_, i) => (
-              <Flame
-                key={i}
-                size={14}
-                className={
-                  i < product.spiceLevel
-                    ? 'fill-primary text-primary'
-                    : 'text-muted-foreground/25'
-                }
-              />
-            ))}
-          </div>
-        </div>
-
-        <p className="text-sm text-muted-foreground leading-relaxed mb-4">
-          {product.description}
-        </p>
-
-        {/* Taste */}
-        <div className="rounded-2xl p-4 mb-4" style={{ background: 'rgba(181,58,46,0.06)' }}>
-          <p
-            className="text-xs font-bold uppercase tracking-wider mb-1.5"
-            style={{ color: 'hsl(4,60%,44%)' }}
-          >
-            Taste Profile
-          </p>
-          <p className="text-sm text-foreground/80">{product.taste}</p>
-        </div>
-
-        <div className="rounded-2xl p-4 mb-6" style={{ background: 'rgba(139,94,60,0.06)' }}>
-          <p className="text-xs font-bold uppercase tracking-wider mb-1.5 text-muted-foreground">
-            Best Paired With
-          </p>
-          <p className="text-sm text-foreground/80">{product.bestWith}</p>
-        </div>
-
-        {/* Size selector */}
-        <div className="mb-5">
-          <p className="text-xs font-bold uppercase tracking-wider mb-2 text-muted-foreground">
-            Select Size
-          </p>
-          <div className="flex gap-2 flex-wrap">
-            {product.sizes.map((s, idx) => (
-              <button
-                key={s.label}
-                onClick={() => setSelectedSizeIdx(idx)}
-                className="flex flex-col items-center px-4 py-2.5 rounded-xl border-2 transition-all duration-200 font-semibold"
-                style={{
-                  borderColor:
-                    selectedSizeIdx === idx ? 'hsl(4,60%,44%)' : 'rgba(139,94,60,0.2)',
-                  background:
-                    selectedSizeIdx === idx ? 'rgba(181,58,46,0.08)' : 'transparent',
-                  color: selectedSizeIdx === idx ? 'hsl(4,60%,44%)' : 'inherit',
-                }}
-              >
-                <span className="text-sm font-bold">{s.label}</span>
-                <span
-                  className="text-sm"
-                  style={{
-                    color:
-                      selectedSizeIdx === idx ? 'hsl(4,60%,44%)' : 'hsl(18,18%,40%)',
-                  }}
-                >
-                  ₹{s.price}
-                </span>
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Quantity */}
-        <div className="flex items-center gap-4 mb-6">
-          <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-            Qty
-          </p>
-          <div
-            className="flex items-center gap-2 rounded-xl border p-1"
-            style={{ borderColor: 'rgba(139,94,60,0.2)' }}
-          >
-            <button
-              onClick={() => setQuantity(q => Math.max(1, q - 1))}
-              className="p-1.5 rounded-lg transition-colors hover:bg-muted"
-            >
-              <Minus size={14} />
-            </button>
-            <span className="w-8 text-center font-bold text-sm">{quantity}</span>
-            <button
-              onClick={() => setQuantity(q => q + 1)}
-              className="p-1.5 rounded-lg transition-colors hover:bg-muted"
-            >
-              <Plus size={14} />
-            </button>
-          </div>
-          <span className="text-sm font-bold ml-auto" style={{ color: 'hsl(4,60%,44%)' }}>
-            Total: ₹{selectedSize.price * quantity}
-          </span>
-        </div>
-
-        {/* Add to Cart */}
-        <button
-          onClick={handleAddToCart}
-          className="w-full flex items-center justify-center gap-2.5 py-3.5 rounded-2xl font-bold text-base transition-all duration-300 active:scale-95"
           style={{
-            background: 'linear-gradient(135deg, hsl(4,65%,48%), hsl(4,60%,38%))',
-            color: '#FFF9F0',
-            boxShadow: '0 8px 24px rgba(181,58,46,0.35)',
+            width: '100%', maxWidth: 660,
+            maxHeight: 'calc(100vh - 32px)',
+            borderRadius: 24,
+            background: 'var(--background)',
+            boxShadow: '0 24px 80px rgba(0,0,0,0.4)',
+            border: '1px solid rgba(181,58,46,0.15)',
+            overflow: 'hidden',
+            display: 'flex',
+            flexDirection: 'column',
+            pointerEvents: 'auto',
           }}
+          onClick={e => e.stopPropagation()}
         >
-          <ShoppingCart size={18} />
-          Add {quantity > 1 ? `${quantity} ` : ''}to Cart — ₹{selectedSize.price * quantity}
-        </button>
-      </div>
-    </div>
+          {/* ── Top image hero ── */}
+          <div style={{ position: 'relative', height: 220, flexShrink: 0, background: '#1a0d08' }}>
+            <img src={product.image} alt={product.name}
+              style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: 0.85 }} />
+            <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom, rgba(0,0,0,0.1) 0%, rgba(0,0,0,0.55) 100%)' }} />
+
+            {/* Close */}
+            <button onClick={onClose}
+              style={{
+                position: 'absolute', top: 14, right: 14,
+                width: 34, height: 34, borderRadius: '50%',
+                background: 'rgba(0,0,0,0.45)', border: 'none', cursor: 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff',
+              }}
+            >
+              <X size={16} />
+            </button>
+
+            {/* Tag + rating */}
+            <div style={{ position: 'absolute', top: 14, left: 14, display: 'flex', gap: 8, alignItems: 'center' }}>
+              <span style={{
+                padding: '3px 10px', borderRadius: 999, fontSize: 11, fontWeight: 700, color: '#fff',
+                background: 'hsl(4,60%,44%)',
+              }}>{product.tag}</span>
+              <span style={{
+                padding: '3px 10px', borderRadius: 999, fontSize: 11, fontWeight: 600,
+                background: 'rgba(0,0,0,0.45)', color: '#fff', display: 'flex', alignItems: 'center', gap: 4,
+              }}>
+                <Star size={10} className="fill-yellow-400 text-yellow-400" />
+                4.8
+              </span>
+            </div>
+
+            {/* Name overlay */}
+            <div style={{ position: 'absolute', bottom: 16, left: 20, right: 20 }}>
+              <p style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,249,240,0.65)', textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: 4 }}>
+                {product.category}
+              </p>
+              <h2 style={{ fontSize: 26, fontWeight: 800, color: '#fff', margin: 0, lineHeight: 1.2 }}>
+                {product.name}
+              </h2>
+            </div>
+          </div>
+
+          {/* ── Scrollable body ── */}
+          <div style={{ flex: 1, overflowY: 'auto', padding: '20px 24px' }}>
+            {/* Spice */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+              <span style={{ fontSize: 12, color: 'hsl(var(--muted-foreground))' }}>Spice:</span>
+              <div style={{ display: 'flex', gap: 2 }}>
+                {[...Array(5)].map((_, i) => (
+                  <Flame key={i} size={14}
+                    className={i < product.spiceLevel ? 'fill-primary text-primary' : 'text-muted-foreground/20'} />
+                ))}
+              </div>
+            </div>
+
+            {/* Description */}
+            <p style={{ fontSize: 14, color: 'hsl(var(--muted-foreground))', lineHeight: 1.65, marginBottom: 16 }}>
+              {product.description}
+            </p>
+
+            {/* Taste + Pairing — horizontal on desktop */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 20 }}>
+              <div style={{ borderRadius: 14, padding: '12px 14px', background: 'rgba(181,58,46,0.06)', border: '1px solid rgba(181,58,46,0.1)' }}>
+                <p style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'hsl(4,60%,44%)', marginBottom: 6 }}>
+                  Taste Profile
+                </p>
+                <p style={{ fontSize: 13, lineHeight: 1.5, color: 'hsl(var(--foreground))' }}>{product.taste}</p>
+              </div>
+              <div style={{ borderRadius: 14, padding: '12px 14px', background: 'rgba(139,94,60,0.06)', border: '1px solid rgba(139,94,60,0.1)' }}>
+                <p style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'hsl(18,18%,40%)', marginBottom: 6 }}>
+                  Best With
+                </p>
+                <p style={{ fontSize: 13, lineHeight: 1.5, color: 'hsl(var(--foreground))' }}>{product.bestWith}</p>
+              </div>
+            </div>
+
+            {/* Size selector */}
+            <div style={{ marginBottom: 16 }}>
+              <p style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'hsl(var(--muted-foreground))', marginBottom: 10 }}>
+                Select Size
+              </p>
+              <div style={{ display: 'flex', gap: 10 }}>
+                {product.sizes.map((s, idx) => (
+                  <button
+                    key={s.label}
+                    onClick={() => setSelectedSizeIdx(idx)}
+                    style={{
+                      padding: '10px 20px', borderRadius: 14,
+                      border: `2px solid ${selectedSizeIdx === idx ? 'hsl(4,60%,44%)' : 'rgba(139,94,60,0.2)'}`,
+                      background: selectedSizeIdx === idx ? 'rgba(181,58,46,0.1)' : 'transparent',
+                      cursor: 'pointer', fontFamily: 'inherit',
+                      display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2,
+                    }}
+                  >
+                    <span style={{ fontSize: 13, fontWeight: 700, color: selectedSizeIdx === idx ? 'hsl(4,60%,44%)' : 'hsl(var(--foreground))' }}>
+                      {s.label}
+                    </span>
+                    <span style={{ fontSize: 16, fontWeight: 800, color: selectedSizeIdx === idx ? 'hsl(4,60%,44%)' : 'hsl(var(--foreground))' }}>
+                      ₹{s.price}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Qty row */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
+              <p style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'hsl(var(--muted-foreground))' }}>
+                Qty
+              </p>
+              <div style={{ display: 'flex', alignItems: 'center', borderRadius: 12, border: '1.5px solid rgba(139,94,60,0.2)', overflow: 'hidden' }}>
+                <button onClick={() => setQuantity(q => Math.max(1, q - 1))}
+                  style={{ width: 36, height: 36, border: 'none', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <Minus size={14} />
+                </button>
+                <span style={{ width: 36, textAlign: 'center', fontWeight: 800, fontSize: 15, borderLeft: '1px solid rgba(139,94,60,0.15)', borderRight: '1px solid rgba(139,94,60,0.15)' }}>
+                  {quantity}
+                </span>
+                <button onClick={() => setQuantity(q => q + 1)}
+                  style={{ width: 36, height: 36, border: 'none', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <Plus size={14} />
+                </button>
+              </div>
+              <span style={{ marginLeft: 'auto', fontSize: 18, fontWeight: 800, color: 'hsl(4,60%,44%)' }}>
+                ₹{selectedSize.price * quantity}
+              </span>
+            </div>
+          </div>
+
+          {/* ── Sticky footer ── */}
+          <div style={{ padding: '14px 24px', borderTop: '1px solid rgba(139,94,60,0.1)', flexShrink: 0, background: 'var(--background)' }}>
+            <button onClick={handleAdd}
+              style={{
+                width: '100%', padding: '15px', borderRadius: 18, border: 'none',
+                background: 'linear-gradient(135deg, hsl(4,65%,48%), hsl(4,60%,38%))',
+                color: '#FFF9F0', fontWeight: 700, fontSize: 16, cursor: 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
+                boxShadow: '0 8px 28px rgba(181,58,46,0.35)',
+                fontFamily: 'inherit',
+              }}
+            >
+              <ShoppingCart size={18} />
+              Add {quantity > 1 ? `${quantity} × ` : ''}to Cart — ₹{selectedSize.price * quantity}
+            </button>
+          </div>
+        </div>
+      </motion.div>
+    </>
   );
 }
 
 export default function ProductModal({ product, onClose }: ProductModalProps) {
-  return (
+  const [mounted, setMounted] = React.useState(false);
+  React.useEffect(() => { setMounted(true); }, []);
+  if (!mounted) return null;
+
+  return createPortal(
     <AnimatePresence>
-      {product && (
-        <>
-          {/* Backdrop */}
-          <motion.div
-            key="modal-backdrop"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.2 }}
-            className="fixed inset-0 z-[200] bg-black/60 backdrop-blur-sm"
-            onClick={onClose}
-          />
-
-          {/* Modal */}
-          <motion.div
-            key="modal-panel"
-            initial={{ opacity: 0, scale: 0.95, y: 20 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.95, y: 20 }}
-            transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
-            className="fixed inset-0 z-[201] flex items-center justify-center p-4 pointer-events-none"
-          >
-            <div
-              className="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-3xl shadow-2xl pointer-events-auto"
-              style={{
-                background: 'var(--background)',
-                border: '1px solid rgba(181,58,46,0.15)',
-              }}
-              onClick={e => e.stopPropagation()}
-            >
-              {/* Close button */}
-              <button
-                onClick={onClose}
-                className="absolute top-4 right-4 z-10 p-2 rounded-full transition-colors"
-                style={{ background: 'rgba(0,0,0,0.08)' }}
-                aria-label="Close"
-              >
-                <X size={18} />
-              </button>
-
-              <ModalContent product={product} onClose={onClose} />
-            </div>
-          </motion.div>
-        </>
-      )}
-    </AnimatePresence>
+      {product && <ModalInner key={product.id} product={product} onClose={onClose} />}
+    </AnimatePresence>,
+    document.body,
   );
 }
