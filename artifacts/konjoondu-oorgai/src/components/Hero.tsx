@@ -1,101 +1,108 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useRef } from 'react';
 import { motion, useScroll, useTransform } from 'framer-motion';
-import gsap from 'gsap';
 import { Star, Heart, Leaf, Clock, ArrowDown, ShoppingBag, BookOpen } from 'lucide-react';
 import heroImg from '@assets/hero-bg.jpg';
 
-// Cinematic word-by-word reveal using Framer Motion
+// ── Animated headline — white text on dark overlay ──────────────
 function AnimatedHeadline() {
-  const lines = [
-    { words: ['Every', 'Jar'], color: 'default' },
-    { words: ['Holds', 'a'], color: 'default' },
-    { words: ['Family'], color: 'accent' },
-    { words: ['Tradition.'], color: 'default' },
+  const lines: { words: string[]; accent?: boolean }[] = [
+    { words: ['Every', 'Jar'] },
+    { words: ['Holds', 'a'] },
+    { words: ['Family'], accent: true },
+    { words: ['Tradition.'] },
   ];
 
   return (
     <h1 className="mb-8" aria-label="Every Jar Holds a Family Tradition.">
       {lines.map((line, li) => (
-        <div key={li} className="overflow-hidden leading-none mb-1">
-          <motion.div
-            className="flex flex-wrap gap-x-[0.3em]"
-            initial="hidden"
-            animate="visible"
-          >
+        <div key={li} className="overflow-hidden leading-[1.04] mb-0.5">
+          <div className="flex flex-wrap gap-x-[0.28em]">
             {line.words.map((word, wi) => (
               <motion.span
                 key={wi}
-                variants={{
-                  hidden: { y: '110%', opacity: 0 },
-                  visible: {
-                    y: 0, opacity: 1,
-                    transition: {
-                      delay: 0.1 + li * 0.18 + wi * 0.08,
-                      duration: 0.75,
-                      ease: [0.22, 1, 0.36, 1],
-                    },
-                  },
+                initial={{ y: '115%', opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                transition={{
+                  delay: 0.08 + li * 0.16 + wi * 0.07,
+                  duration: 0.7,
+                  ease: [0.22, 1, 0.36, 1],
                 }}
                 className="inline-block"
                 style={{
                   fontFamily: 'Poppins, sans-serif',
                   fontWeight: 900,
-                  fontSize: 'clamp(40px, 6.5vw, 88px)',
-                  lineHeight: 1.05,
-                  color: line.color === 'accent' ? 'hsl(4, 60%, 44%)' : 'hsl(18, 18%, 10%)',
-                  letterSpacing: '-0.02em',
+                  fontSize: 'clamp(42px, 6.8vw, 92px)',
+                  lineHeight: 1.04,
+                  letterSpacing: '-0.025em',
+                  // Warm white for normal words, gold for accent
+                  color: line.accent ? 'hsl(42, 82%, 62%)' : '#FFF9F0',
+                  // Subtle text shadow for depth on dark BG
+                  textShadow: line.accent
+                    ? '0 0 40px rgba(232,182,74,0.4), 0 2px 12px rgba(0,0,0,0.5)'
+                    : '0 2px 16px rgba(0,0,0,0.55)',
                 }}
               >
                 {word}
               </motion.span>
             ))}
-          </motion.div>
+          </div>
         </div>
       ))}
     </h1>
   );
 }
 
-function FloatingBadge({
-  icon, title, sub, delay, color,
+// ── Trust badge ─────────────────────────────────────────────────
+function Badge({
+  icon, title, sub, delay, bg,
 }: {
-  icon: React.ReactNode; title: string; sub: string; delay: number; color: string;
+  icon: React.ReactNode; title: string; sub: string; delay: number; bg: string;
 }) {
   return (
     <motion.div
-      initial={{ opacity: 0, y: 24, scale: 0.9 }}
+      initial={{ opacity: 0, y: 20, scale: 0.92 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
-      transition={{ delay, duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
-      whileHover={{ y: -4, scale: 1.03 }}
+      transition={{ delay, duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
+      whileHover={{ y: -3, scale: 1.03 }}
       className="flex items-center gap-3 px-4 py-3 rounded-2xl cursor-default"
       style={{
-        background: 'rgba(255,249,243,0.72)',
+        background: 'rgba(255,249,243,0.1)',
         backdropFilter: 'blur(20px)',
         WebkitBackdropFilter: 'blur(20px)',
-        border: '1px solid rgba(255,255,255,0.7)',
-        boxShadow: '0 8px 32px rgba(139,94,60,0.12), inset 0 1px 0 rgba(255,255,255,0.9)',
+        border: '1px solid rgba(255,255,255,0.18)',
+        boxShadow: '0 4px 24px rgba(0,0,0,0.22), inset 0 1px 0 rgba(255,255,255,0.15)',
       }}
     >
       <div
         className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
-        style={{ background: color }}
+        style={{ background: bg, boxShadow: '0 4px 12px rgba(0,0,0,0.2)' }}
       >
         {icon}
       </div>
       <div>
-        <p className="font-bold text-sm leading-none mb-0.5" style={{ color: 'hsl(18,18%,12%)', fontFamily: 'Poppins,sans-serif' }}>{title}</p>
-        <p className="text-xs leading-none" style={{ color: 'hsl(25,30%,50%)', fontFamily: 'Poppins,sans-serif' }}>{sub}</p>
+        <p className="font-bold text-sm leading-none mb-0.5"
+          style={{ color: '#FFF9F0', fontFamily: 'Poppins,sans-serif' }}>
+          {title}
+        </p>
+        <p className="text-xs leading-none"
+          style={{ color: 'rgba(255,249,240,0.6)', fontFamily: 'Poppins,sans-serif' }}>
+          {sub}
+        </p>
       </div>
     </motion.div>
   );
 }
 
+// ── Hero ────────────────────────────────────────────────────────
 export default function Hero() {
   const sectionRef = useRef<HTMLElement>(null);
-  const imgRef = useRef<HTMLDivElement>(null);
-  const { scrollYProgress } = useScroll({ target: sectionRef, offset: ['start start', 'end start'] });
-  const imgY = useTransform(scrollYProgress, [0, 1], ['0%', '30%']);
-  const overlayOpacity = useTransform(scrollYProgress, [0, 0.8], [0.55, 0.85]);
+  const { scrollYProgress } = useScroll({
+    target: sectionRef,
+    offset: ['start start', 'end start'],
+  });
+  const imgY       = useTransform(scrollYProgress, [0, 1], ['0%', '28%']);
+  const textY      = useTransform(scrollYProgress, [0, 1], ['0%', '12%']);
+  const overlayOp  = useTransform(scrollYProgress, [0, 0.7], [0.82, 0.96]);
 
   return (
     <section
@@ -103,9 +110,8 @@ export default function Hero() {
       id="hero"
       className="relative min-h-[100dvh] flex flex-col justify-center overflow-hidden"
     >
-      {/* ── PARALLAX BACKGROUND ── */}
+      {/* ── PARALLAX IMAGE ── */}
       <motion.div
-        ref={imgRef}
         className="absolute inset-0 z-0"
         style={{ y: imgY }}
       >
@@ -116,103 +122,116 @@ export default function Hero() {
         />
       </motion.div>
 
-      {/* ── LAYERED OVERLAYS ── */}
-      {/* Left warm gradient for text readability */}
+      {/* ── DARK CINEMATIC OVERLAY ── */}
+      {/* Primary dark gradient — ensures legibility */}
       <motion.div
         className="absolute inset-0 z-[1]"
-        style={{ opacity: overlayOpacity }}
+        style={{ opacity: overlayOp }}
       >
         <div
           className="w-full h-full"
           style={{
-            background: `
-              linear-gradient(105deg,
-                rgba(255,249,243,0.96) 0%,
-                rgba(255,249,243,0.88) 28%,
-                rgba(255,249,243,0.60) 50%,
-                rgba(255,249,243,0.15) 70%,
-                transparent 100%
-              )
-            `,
+            background: `linear-gradient(
+              108deg,
+              rgba(12,5,2,0.92) 0%,
+              rgba(18,8,3,0.82) 35%,
+              rgba(18,8,3,0.55) 60%,
+              rgba(18,8,3,0.18) 80%,
+              transparent 100%
+            )`,
           }}
         />
       </motion.div>
 
-      {/* Warm radial glow */}
+      {/* Warm amber glow bottom-left — brand warmth */}
       <div
-        className="absolute inset-0 z-[1]"
+        className="absolute inset-0 z-[1] pointer-events-none"
         style={{
-          background: 'radial-gradient(ellipse 60% 80% at 20% 50%, rgba(232,182,74,0.08) 0%, transparent 70%)',
-          pointerEvents: 'none',
+          background:
+            'radial-gradient(ellipse 55% 60% at 10% 85%, rgba(181,90,30,0.22) 0%, transparent 65%),' +
+            'radial-gradient(ellipse 40% 45% at 0% 50%, rgba(232,140,30,0.1) 0%, transparent 60%)',
         }}
       />
 
+      {/* Top fade — blends into page top cleanly */}
+      <div
+        className="absolute top-0 left-0 right-0 z-[1] h-24 pointer-events-none"
+        style={{ background: 'linear-gradient(to bottom, rgba(12,5,2,0.45) 0%, transparent 100%)' }}
+      />
+
       {/* ── CONTENT ── */}
-      <div className="relative z-10 container mx-auto px-6 md:px-12 pt-28 pb-24 flex flex-col justify-between min-h-[100dvh]">
+      <motion.div
+        className="relative z-10 container mx-auto px-6 md:px-14 pt-28 pb-20 flex flex-col justify-between min-h-[100dvh]"
+        style={{ y: textY }}
+      >
         <div className="flex-1 flex flex-col justify-center max-w-3xl">
 
-          {/* Eyebrow pill */}
+          {/* Eyebrow */}
           <motion.div
-            initial={{ opacity: 0, x: -20 }}
+            initial={{ opacity: 0, x: -18 }}
             animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.05, duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
-            className="inline-flex items-center gap-2 mb-8 self-start"
+            transition={{ delay: 0.05, duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
+            className="mb-7 self-start"
           >
             <span
               className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-xs font-bold uppercase tracking-[0.2em]"
               style={{
-                background: 'rgba(181,58,46,0.1)',
-                color: 'hsl(4,60%,40%)',
-                border: '1px solid rgba(181,58,46,0.2)',
-                backdropFilter: 'blur(8px)',
+                background: 'rgba(232,140,30,0.18)',
+                color: 'hsl(42,82%,72%)',
+                border: '1px solid rgba(232,140,30,0.3)',
+                backdropFilter: 'blur(10px)',
                 fontFamily: 'Poppins,sans-serif',
               }}
             >
-              <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse inline-block" />
-              Handcrafted in South India · Est. Family Tradition
+              <span
+                className="w-1.5 h-1.5 rounded-full inline-block animate-pulse"
+                style={{ background: 'hsl(42,82%,65%)' }}
+              />
+              Handcrafted in South India · Family Heritage
             </span>
           </motion.div>
 
-          {/* Animated headline */}
+          {/* Headline */}
           <AnimatedHeadline />
 
           {/* Subheading */}
           <motion.p
-            initial={{ opacity: 0, y: 16 }}
+            initial={{ opacity: 0, y: 14 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.85, duration: 0.7 }}
+            transition={{ delay: 0.82, duration: 0.65 }}
             className="text-lg md:text-xl max-w-lg mb-10 leading-relaxed"
             style={{
-              color: 'hsl(18,18%,28%)',
+              color: 'rgba(255,249,240,0.72)',
               fontFamily: 'Poppins,sans-serif',
               fontWeight: 400,
+              textShadow: '0 1px 8px rgba(0,0,0,0.4)',
             }}
           >
             Handcrafted homemade pickles prepared with{' '}
-            <em style={{ fontStyle: 'normal', color: 'hsl(4,60%,44%)', fontWeight: 600 }}>
+            <em style={{ fontStyle: 'normal', color: 'hsl(42,82%,68%)', fontWeight: 600 }}>
               authentic recipes
             </em>
             , premium ingredients, and the warmth of home — one jar at a time.
           </motion.p>
 
-          {/* CTA Buttons */}
+          {/* CTAs */}
           <motion.div
-            initial={{ opacity: 0, y: 16 }}
+            initial={{ opacity: 0, y: 14 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 1.05, duration: 0.6 }}
+            transition={{ delay: 1.0, duration: 0.55 }}
             className="flex flex-wrap gap-3 mb-14"
           >
             {/* Primary */}
             <motion.a
               href="#products"
-              whileHover={{ scale: 1.04, boxShadow: '0 12px 40px rgba(181,58,46,0.35)' }}
+              whileHover={{ scale: 1.04, boxShadow: '0 14px 44px rgba(181,58,46,0.45)' }}
               whileTap={{ scale: 0.97 }}
               className="inline-flex items-center gap-2.5 px-7 h-14 rounded-full font-bold text-base cursor-pointer"
               style={{
-                background: 'linear-gradient(135deg, hsl(4,65%,48%), hsl(4,60%,38%))',
-                color: '#FFF9F3',
+                background: 'linear-gradient(135deg, hsl(4,68%,50%), hsl(4,60%,36%))',
+                color: '#FFF9F0',
                 fontFamily: 'Poppins,sans-serif',
-                boxShadow: '0 8px 28px rgba(181,58,46,0.28), inset 0 1px 0 rgba(255,255,255,0.15)',
+                boxShadow: '0 8px 28px rgba(181,58,46,0.35), inset 0 1px 0 rgba(255,255,255,0.18)',
                 textDecoration: 'none',
               }}
             >
@@ -220,20 +239,19 @@ export default function Hero() {
               Shop Now
             </motion.a>
 
-            {/* Secondary */}
+            {/* Secondary glass */}
             <motion.a
               href="#products"
-              whileHover={{ scale: 1.04 }}
+              whileHover={{ scale: 1.04, background: 'rgba(255,249,240,0.22)' }}
               whileTap={{ scale: 0.97 }}
               className="inline-flex items-center gap-2.5 px-7 h-14 rounded-full font-bold text-base cursor-pointer"
               style={{
-                background: 'rgba(255,249,243,0.75)',
-                color: 'hsl(18,18%,14%)',
+                background: 'rgba(255,249,240,0.12)',
+                color: '#FFF9F0',
                 fontFamily: 'Poppins,sans-serif',
                 backdropFilter: 'blur(16px)',
                 WebkitBackdropFilter: 'blur(16px)',
-                border: '1.5px solid rgba(139,94,60,0.25)',
-                boxShadow: '0 4px 20px rgba(139,94,60,0.1)',
+                border: '1.5px solid rgba(255,249,240,0.28)',
                 textDecoration: 'none',
               }}
             >
@@ -243,14 +261,14 @@ export default function Hero() {
             {/* Ghost */}
             <motion.a
               href="#story"
-              whileHover={{ scale: 1.04 }}
+              whileHover={{ scale: 1.04, color: 'hsl(42,82%,68%)' }}
               whileTap={{ scale: 0.97 }}
               className="inline-flex items-center gap-2 px-7 h-14 rounded-full font-semibold text-base cursor-pointer"
               style={{
-                color: 'hsl(4,60%,40%)',
+                color: 'rgba(255,249,240,0.7)',
                 fontFamily: 'Poppins,sans-serif',
                 background: 'transparent',
-                border: '1.5px solid rgba(181,58,46,0.3)',
+                border: '1.5px solid rgba(255,249,240,0.22)',
                 textDecoration: 'none',
               }}
             >
@@ -259,49 +277,33 @@ export default function Hero() {
             </motion.a>
           </motion.div>
 
-          {/* Trust badges */}
+          {/* Trust badges — dark glass style */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <FloatingBadge
-              delay={1.25}
-              icon={<Star size={16} strokeWidth={2} style={{ color: '#FFF9F3' }} fill="#FFF9F3" />}
-              title="5.0 Rating"
-              sub="Loved by families"
-              color="hsl(42,75%,52%)"
-            />
-            <FloatingBadge
-              delay={1.35}
-              icon={<Heart size={16} strokeWidth={2} style={{ color: '#FFF9F3' }} fill="#FFF9F3" />}
-              title="Homemade"
-              sub="Family recipes"
-              color="hsl(4,60%,44%)"
-            />
-            <FloatingBadge
-              delay={1.45}
-              icon={<Leaf size={16} strokeWidth={2} style={{ color: '#FFF9F3' }} fill="#FFF9F3" />}
-              title="100% Natural"
-              sub="No preservatives"
-              color="hsl(93,32%,42%)"
-            />
-            <FloatingBadge
-              delay={1.55}
-              icon={<Clock size={16} strokeWidth={2} style={{ color: '#FFF9F3' }} />}
-              title="Sun Cured"
-              sub="Traditional process"
-              color="hsl(25,38%,48%)"
-            />
+            <Badge delay={1.2} bg="hsl(42,75%,48%)"
+              icon={<Star size={16} strokeWidth={2} style={{ color: '#FFF9F0' }} fill="#FFF9F0" />}
+              title="5.0 Rating" sub="Loved by families" />
+            <Badge delay={1.3} bg="hsl(4,60%,44%)"
+              icon={<Heart size={16} strokeWidth={2} style={{ color: '#FFF9F0' }} fill="#FFF9F0" />}
+              title="Homemade" sub="Family recipes" />
+            <Badge delay={1.4} bg="hsl(93,32%,40%)"
+              icon={<Leaf size={16} strokeWidth={2} style={{ color: '#FFF9F0' }} fill="#FFF9F0" />}
+              title="100% Natural" sub="No preservatives" />
+            <Badge delay={1.5} bg="hsl(25,38%,44%)"
+              icon={<Clock size={16} strokeWidth={2} style={{ color: '#FFF9F0' }} />}
+              title="Sun Cured" sub="Traditional process" />
           </div>
         </div>
 
-        {/* ── SCROLL INDICATOR ── */}
+        {/* Scroll indicator */}
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          transition={{ delay: 2.0, duration: 0.8 }}
+          transition={{ delay: 2.2, duration: 0.8 }}
           className="flex flex-col items-start gap-2 mt-10"
         >
           <span
-            className="text-xs font-semibold tracking-[0.2em] uppercase"
-            style={{ color: 'hsl(25,30%,50%)', fontFamily: 'Poppins,sans-serif' }}
+            className="text-xs font-semibold tracking-[0.22em] uppercase"
+            style={{ color: 'rgba(255,249,240,0.45)', fontFamily: 'Poppins,sans-serif' }}
           >
             Scroll to discover
           </span>
@@ -309,18 +311,17 @@ export default function Hero() {
             animate={{ y: [0, 8, 0] }}
             transition={{ duration: 1.6, repeat: Infinity, ease: 'easeInOut' }}
           >
-            <ArrowDown size={18} style={{ color: 'hsl(4,60%,44%)' }} />
+            <ArrowDown size={18} style={{ color: 'rgba(255,249,240,0.5)' }} />
           </motion.div>
         </motion.div>
-      </div>
+      </motion.div>
 
-      {/* ── DECORATIVE BOTTOM WAVE ── */}
+      {/* Bottom wave blending into next section */}
       <div className="absolute bottom-0 left-0 right-0 z-[2]" style={{ lineHeight: 0 }}>
-        <svg viewBox="0 0 1440 64" preserveAspectRatio="none" style={{ width: '100%', height: 64 }}>
+        <svg viewBox="0 0 1440 72" preserveAspectRatio="none" style={{ width: '100%', height: 72 }}>
           <path
-            d="M0,48 C240,0 480,64 720,40 C960,16 1200,64 1440,32 L1440,64 L0,64 Z"
-            fill="hsl(30,100%,98%)"
-            opacity="0.9"
+            d="M0,52 C200,8 400,68 720,44 C960,22 1200,66 1440,36 L1440,72 L0,72 Z"
+            fill="hsl(30,100%,97%)"
           />
         </svg>
       </div>

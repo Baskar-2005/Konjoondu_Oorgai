@@ -3,177 +3,196 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useTheme } from '@/components/ThemeProvider';
 import { Sun, Moon, Menu, X } from 'lucide-react';
 
-// ── Logo Mark SVG ────────────────────────────────────────────────
+// ── Logo Mark ────────────────────────────────────────────────────
 function LogoMark({ size = 36 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 48 48" fill="none" aria-hidden="true">
-      <rect x="10" y="6" width="28" height="8" rx="3" fill="hsl(25, 38%, 48%)" />
-      <rect x="8" y="9" width="32" height="5" rx="2.5" fill="hsl(25, 38%, 56%)" />
-      <rect x="8" y="14" width="32" height="28" rx="6" fill="hsl(4, 60%, 44%)" opacity="0.9" />
+      <rect x="10" y="6" width="28" height="8" rx="3" fill="hsl(25,38%,48%)" />
+      <rect x="8" y="9" width="32" height="5" rx="2.5" fill="hsl(25,38%,56%)" />
+      <rect x="8" y="14" width="32" height="28" rx="6" fill="hsl(4,60%,44%)" opacity="0.9" />
       <rect x="13" y="17" width="5" height="18" rx="2.5" fill="white" opacity="0.18" />
-      <ellipse cx="24" cy="28" rx="7" ry="9" fill="hsl(93, 40%, 48%)" opacity="0.85" />
-      <line x1="24" y1="19" x2="24" y2="37" stroke="hsl(93, 45%, 28%)" strokeWidth="0.8" opacity="0.7" />
-      <circle cx="19" cy="26" r="1.2" fill="hsl(42, 78%, 70%)" opacity="0.8" />
-      <circle cx="29" cy="30" r="1" fill="hsl(42, 78%, 70%)" opacity="0.8" />
+      <ellipse cx="24" cy="28" rx="7" ry="9" fill="hsl(93,40%,48%)" opacity="0.85" />
+      <line x1="24" y1="19" x2="24" y2="37" stroke="hsl(93,45%,28%)" strokeWidth="0.8" opacity="0.7" />
+      <circle cx="19" cy="26" r="1.2" fill="hsl(42,78%,70%)" opacity="0.8" />
+      <circle cx="29" cy="30" r="1" fill="hsl(42,78%,70%)" opacity="0.8" />
     </svg>
   );
 }
 
-const navLinks = [
-  { name: 'Products', href: '#products' },
-  { name: 'Our Story', href: '#story' },
-  { name: 'Recipes', href: '#recipes' },
-  { name: 'Contact', href: '#contact' },
+const NAV_LINKS = [
+  { label: 'Products', href: '#products' },
+  { label: 'Our Story', href: '#story' },
+  { label: 'Recipes', href: '#recipes' },
+  { label: 'Contact', href: '#contact' },
 ];
 
-// ── Elastic spring — bouncy but controlled ─────────────────────
-const SPRING = { type: 'spring' as const, stiffness: 380, damping: 22, mass: 0.9 };
+// Elastic spring — springy enough to feel alive, stable enough to settle
+const SPRING = { type: 'spring' as const, stiffness: 340, damping: 28, mass: 0.85 };
 
 export default function Navigation() {
   const [scrolled, setScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const { theme, setTheme } = useTheme();
 
-  const onScroll = useCallback(() => setScrolled(window.scrollY > 90), []);
-
+  // ── Scroll listener ──────────────────────────────────────────
   useEffect(() => {
-    window.addEventListener('scroll', onScroll, { passive: true });
-    return () => window.removeEventListener('scroll', onScroll);
-  }, [onScroll]);
+    const handler = () => setScrolled(window.scrollY > 80);
+    // Run once on mount so state is correct if page loads mid-scroll
+    handler();
+    window.addEventListener('scroll', handler, { passive: true });
+    return () => window.removeEventListener('scroll', handler);
+  }, []);
 
+  // ── DESKTOP ─────────────────────────────────────────────────
+  //
+  // KEY FIX: never animate `width` or use `'auto'` — Framer Motion
+  // can't interpolate string ↔ number. Instead we:
+  //   • keep the nav always `width: 100%` (fills the centering flex wrapper)
+  //   • animate `maxWidth` between a large number (normal) and a small one (pill)
+  //   • spring works perfectly in BOTH directions this way
+  //
   return (
     <>
-      {/* ══ DESKTOP NAV ══════════════════════════════════════════ */}
-      {/* Wrapper: always full-width fixed, just for positioning. */}
-      <div className="fixed top-0 left-0 right-0 z-40 hidden md:flex justify-center pointer-events-none">
+      {/* ── DESKTOP ─────────────────────────────────────────── */}
+      <div
+        className="fixed top-0 left-0 right-0 z-50 hidden md:flex justify-center items-start pointer-events-none"
+      >
         <motion.nav
           layout
           initial={false}
           animate={
             scrolled
               ? {
+                  maxWidth: 760,
                   marginTop: 14,
-                  paddingLeft: 20,
-                  paddingRight: 20,
                   paddingTop: 10,
                   paddingBottom: 10,
+                  paddingLeft: 22,
+                  paddingRight: 22,
                   borderRadius: 100,
-                  backgroundColor: 'rgba(255,249,243,0.85)',
+                  backgroundColor: 'rgba(255,249,243,0.88)',
                   backdropFilter: 'blur(28px)',
-                  boxShadow:
-                    '0 4px 6px rgba(139,94,60,0.06), 0 12px 40px rgba(139,94,60,0.16), inset 0 1px 0 rgba(255,255,255,0.85)',
-                  border: '1.5px solid rgba(255,255,255,0.75)',
-                  width: 'auto',
-                  minWidth: 480,
-                  maxWidth: 780,
+                  boxShadow: '0 2px 8px rgba(139,94,60,0.08), 0 12px 40px rgba(139,94,60,0.16), inset 0 1px 0 rgba(255,255,255,0.9)',
+                  border: '1.5px solid rgba(255,255,255,0.8)',
                 }
               : {
+                  maxWidth: 2000,
                   marginTop: 0,
-                  paddingLeft: 40,
-                  paddingRight: 40,
                   paddingTop: 22,
                   paddingBottom: 22,
+                  paddingLeft: 48,
+                  paddingRight: 48,
                   borderRadius: 0,
                   backgroundColor: 'rgba(255,249,243,0)',
                   backdropFilter: 'blur(0px)',
                   boxShadow: 'none',
                   border: '1.5px solid transparent',
-                  width: '100%',
-                  minWidth: 0,
-                  maxWidth: '100%',
                 }
           }
           transition={SPRING}
-          className="flex items-center justify-between gap-8 pointer-events-auto"
+          className="w-full flex items-center justify-between gap-6 pointer-events-auto"
           style={{ WebkitBackdropFilter: scrolled ? 'blur(28px)' : 'blur(0px)' }}
         >
           {/* Logo */}
           <a
             href="#"
-            onClick={(e) => { e.preventDefault(); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+            onClick={e => { e.preventDefault(); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
             className="flex items-center gap-2.5 flex-shrink-0 select-none"
-            aria-label="Konjoondu Oorgai — home"
+            aria-label="Konjoondu Oorgai home"
           >
-            <motion.div animate={{ scale: scrolled ? 0.85 : 1 }} transition={SPRING}>
-              <LogoMark size={scrolled ? 30 : 38} />
-            </motion.div>
-            <span className="flex flex-col leading-none">
+            <motion.span animate={{ scale: scrolled ? 0.88 : 1 }} transition={SPRING} style={{ display: 'block' }}>
+              <LogoMark size={scrolled ? 30 : 36} />
+            </motion.span>
+            <span className="flex flex-col leading-none overflow-hidden">
               <motion.span
-                animate={{ fontSize: scrolled ? '15px' : '20px' }}
+                animate={{ fontSize: scrolled ? '14px' : '19px' }}
                 transition={SPRING}
-                style={{
-                  fontFamily: 'Poppins, sans-serif',
-                  fontWeight: 900,
-                  color: 'hsl(4, 60%, 44%)',
-                  letterSpacing: '-0.02em',
-                  lineHeight: 1,
-                }}
+                style={{ fontFamily: 'Poppins,sans-serif', fontWeight: 900, color: scrolled ? 'hsl(4,60%,44%)' : 'hsl(4,60%,44%)', letterSpacing: '-0.02em', lineHeight: 1, display: 'block' }}
               >
                 Konjoondu
               </motion.span>
               <motion.span
                 animate={{ fontSize: scrolled ? '8px' : '10px' }}
                 transition={SPRING}
-                style={{
-                  fontFamily: 'Poppins, sans-serif',
-                  fontWeight: 700,
-                  color: 'hsl(18, 18%, 22%)',
-                  letterSpacing: '0.22em',
-                  lineHeight: 1.4,
-                }}
+                style={{ fontFamily: 'Poppins,sans-serif', fontWeight: 700, color: 'hsl(18,18%,24%)', letterSpacing: '0.2em', lineHeight: 1.4, display: 'block' }}
               >
                 OORGAI
               </motion.span>
             </span>
           </a>
 
-          {/* Pill divider */}
+          {/* Divider — only in pill mode */}
           <AnimatePresence>
             {scrolled && (
               <motion.div
                 initial={{ opacity: 0, scaleY: 0 }}
                 animate={{ opacity: 1, scaleY: 1 }}
                 exit={{ opacity: 0, scaleY: 0 }}
-                className="h-5 w-px flex-shrink-0"
-                style={{ background: 'rgba(139,94,60,0.2)' }}
+                transition={{ duration: 0.2 }}
+                className="h-5 w-px flex-shrink-0 rounded-full"
+                style={{ background: 'rgba(139,94,60,0.22)' }}
               />
             )}
           </AnimatePresence>
 
-          {/* Nav links */}
-          <div className="flex items-center gap-1">
-            {navLinks.map((link) => (
-              <motion.a
-                key={link.name}
+          {/* Links */}
+          <div className="flex items-center gap-0.5 flex-1 justify-end">
+            {NAV_LINKS.map(link => (
+              <a
+                key={link.label}
                 href={link.href}
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                className="relative px-3.5 py-1.5 rounded-full text-sm font-semibold group"
+                className="relative px-3.5 py-1.5 rounded-full text-sm font-semibold transition-colors duration-200 group"
                 style={{
-                  fontFamily: 'Poppins, sans-serif',
-                  color: scrolled ? 'hsl(18,18%,20%)' : 'hsl(18,18%,12%)',
+                  fontFamily: 'Poppins,sans-serif',
+                  color: scrolled ? 'hsl(18,18%,18%)' : 'hsl(18,18%,95%)',
                   textDecoration: 'none',
+                  textShadow: scrolled ? 'none' : '0 1px 3px rgba(0,0,0,0.4)',
                 }}
               >
-                {link.name}
+                <span className="relative z-10">{link.label}</span>
+                {/* hover pill */}
                 <span
                   className="absolute inset-0 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-200"
-                  style={{ background: 'rgba(181,58,46,0.07)' }}
+                  style={{ background: scrolled ? 'rgba(181,58,46,0.08)' : 'rgba(255,255,255,0.12)' }}
                 />
+                {/* underline */}
                 <span
-                  className="absolute bottom-0.5 left-3.5 right-3.5 h-[1.5px] rounded-full scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-left"
-                  style={{ background: 'hsl(4,60%,44%)' }}
+                  className="absolute bottom-0.5 left-3.5 right-3.5 h-[1.5px] rounded-full origin-left scale-x-0 group-hover:scale-x-100 transition-transform duration-300"
+                  style={{ background: scrolled ? 'hsl(4,60%,44%)' : 'rgba(255,249,243,0.8)' }}
                 />
-              </motion.a>
+              </a>
             ))}
+
+            {/* CTA in pill mode */}
+            <AnimatePresence>
+              {scrolled && (
+                <motion.a
+                  href="#products"
+                  initial={{ opacity: 0, scale: 0.8, width: 0 }}
+                  animate={{ opacity: 1, scale: 1, width: 'auto' }}
+                  exit={{ opacity: 0, scale: 0.8, width: 0 }}
+                  transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
+                  className="ml-1 overflow-hidden whitespace-nowrap px-4 py-1.5 rounded-full text-sm font-bold flex-shrink-0"
+                  style={{
+                    background: 'linear-gradient(135deg, hsl(4,65%,48%), hsl(4,60%,38%))',
+                    color: '#FFF9F3',
+                    fontFamily: 'Poppins,sans-serif',
+                    textDecoration: 'none',
+                    boxShadow: '0 4px 14px rgba(181,58,46,0.28)',
+                  }}
+                >
+                  Shop Now
+                </motion.a>
+              )}
+            </AnimatePresence>
 
             {/* Theme toggle */}
             <motion.button
-              whileHover={{ scale: 1.12, rotate: 12 }}
+              whileHover={{ scale: 1.12 }}
               whileTap={{ scale: 0.9 }}
               onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-              className="ml-2 p-2 rounded-full"
-              style={{ background: scrolled ? 'rgba(139,94,60,0.08)' : 'rgba(255,249,243,0.3)' }}
+              className="ml-1 p-2 rounded-full flex-shrink-0"
+              style={{ background: scrolled ? 'rgba(139,94,60,0.08)' : 'rgba(255,255,255,0.14)' }}
               aria-label="Toggle theme"
             >
               <AnimatePresence mode="wait" initial={false}>
@@ -182,12 +201,12 @@ export default function Navigation() {
                   initial={{ rotate: -90, opacity: 0, scale: 0.5 }}
                   animate={{ rotate: 0, opacity: 1, scale: 1 }}
                   exit={{ rotate: 90, opacity: 0, scale: 0.5 }}
-                  transition={{ duration: 0.22 }}
+                  transition={{ duration: 0.2 }}
                   style={{ display: 'block' }}
                 >
                   {theme === 'dark'
-                    ? <Sun size={16} strokeWidth={2} style={{ color: 'hsl(42,78%,50%)' }} />
-                    : <Moon size={16} strokeWidth={2} style={{ color: 'hsl(18,18%,28%)' }} />
+                    ? <Sun size={15} strokeWidth={2} style={{ color: 'hsl(42,78%,55%)' }} />
+                    : <Moon size={15} strokeWidth={2} style={{ color: scrolled ? 'hsl(18,18%,28%)' : '#FFF9F3' }} />
                   }
                 </motion.span>
               </AnimatePresence>
@@ -196,36 +215,39 @@ export default function Navigation() {
         </motion.nav>
       </div>
 
-      {/* ══ MOBILE NAV ═══════════════════════════════════════════ */}
-      <div className="fixed top-0 left-0 right-0 z-40 flex md:hidden justify-center pointer-events-none">
+      {/* ── MOBILE ──────────────────────────────────────────────── */}
+      <div className="fixed top-0 left-0 right-0 z-50 flex md:hidden justify-center items-start pointer-events-none">
         <motion.nav
+          initial={false}
           animate={
             scrolled
               ? {
+                  maxWidth: 9999,
+                  width: 'calc(100vw - 32px)',
                   marginTop: 10,
-                  paddingLeft: 16,
-                  paddingRight: 16,
                   paddingTop: 8,
                   paddingBottom: 8,
+                  paddingLeft: 16,
+                  paddingRight: 16,
                   borderRadius: 100,
-                  backgroundColor: 'rgba(255,249,243,0.9)',
+                  backgroundColor: 'rgba(255,249,243,0.92)',
                   backdropFilter: 'blur(28px)',
-                  boxShadow: '0 8px 32px rgba(139,94,60,0.18)',
-                  border: '1.5px solid rgba(255,255,255,0.75)',
-                  width: 'calc(100vw - 32px)',
+                  boxShadow: '0 8px 32px rgba(139,94,60,0.2)',
+                  border: '1.5px solid rgba(255,255,255,0.8)',
                 }
               : {
+                  maxWidth: 9999,
+                  width: '100vw',
                   marginTop: 0,
-                  paddingLeft: 20,
-                  paddingRight: 20,
                   paddingTop: 18,
                   paddingBottom: 18,
+                  paddingLeft: 20,
+                  paddingRight: 20,
                   borderRadius: 0,
                   backgroundColor: 'rgba(255,249,243,0)',
                   backdropFilter: 'blur(0px)',
                   boxShadow: 'none',
                   border: '1.5px solid transparent',
-                  width: '100vw',
                 }
           }
           transition={SPRING}
@@ -234,15 +256,17 @@ export default function Navigation() {
         >
           <a
             href="#"
-            onClick={(e) => { e.preventDefault(); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+            onClick={e => { e.preventDefault(); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
             className="flex items-center gap-2 select-none"
             aria-label="Konjoondu Oorgai home"
           >
-            <LogoMark size={28} />
-            <span
-              style={{ fontFamily: 'Poppins', fontWeight: 900, fontSize: 16, color: 'hsl(4,60%,44%)', letterSpacing: '-0.02em' }}
-            >
-              Konjoondu <span style={{ color: 'hsl(18,18%,14%)' }}>Oorgai</span>
+            <LogoMark size={26} />
+            <span style={{
+              fontFamily: 'Poppins', fontWeight: 900, fontSize: 15,
+              color: scrolled ? 'hsl(4,60%,44%)' : 'hsl(4,60%,44%)',
+              letterSpacing: '-0.02em',
+            }}>
+              Konjoondu <span style={{ color: 'hsl(18,18%,18%)' }}>Oorgai</span>
             </span>
           </a>
 
@@ -250,15 +274,15 @@ export default function Navigation() {
             <button
               onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
               className="p-2 rounded-full"
-              style={{ background: 'rgba(139,94,60,0.08)' }}
+              style={{ background: 'rgba(139,94,60,0.1)' }}
               aria-label="Toggle theme"
             >
-              {theme === 'dark' ? <Sun size={15} /> : <Moon size={15} />}
+              {theme === 'dark' ? <Sun size={14} /> : <Moon size={14} />}
             </button>
             <button
-              onClick={() => setMobileOpen(!mobileOpen)}
+              onClick={() => setMobileOpen(o => !o)}
               className="p-2 rounded-full"
-              style={{ background: 'rgba(139,94,60,0.08)' }}
+              style={{ background: 'rgba(139,94,60,0.1)' }}
               aria-label={mobileOpen ? 'Close menu' : 'Open menu'}
               aria-expanded={mobileOpen}
             >
@@ -268,10 +292,10 @@ export default function Navigation() {
                   initial={{ rotate: -90, opacity: 0 }}
                   animate={{ rotate: 0, opacity: 1 }}
                   exit={{ rotate: 90, opacity: 0 }}
-                  transition={{ duration: 0.18 }}
+                  transition={{ duration: 0.16 }}
                   style={{ display: 'block' }}
                 >
-                  {mobileOpen ? <X size={18} /> : <Menu size={18} />}
+                  {mobileOpen ? <X size={17} /> : <Menu size={17} />}
                 </motion.span>
               </AnimatePresence>
             </button>
@@ -279,45 +303,45 @@ export default function Navigation() {
         </motion.nav>
       </div>
 
-      {/* Mobile dropdown */}
+      {/* Mobile drawer */}
       <AnimatePresence>
         {mobileOpen && (
           <>
             <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="fixed inset-0 z-30 md:hidden"
-              style={{ background: 'rgba(45,36,31,0.3)', backdropFilter: 'blur(3px)' }}
+              key="overlay"
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              className="fixed inset-0 z-40 md:hidden"
+              style={{ background: 'rgba(30,14,8,0.4)', backdropFilter: 'blur(4px)' }}
               onClick={() => setMobileOpen(false)}
             />
             <motion.div
-              initial={{ opacity: 0, y: -12, scale: 0.97 }}
+              key="drawer"
+              initial={{ opacity: 0, y: -14, scale: 0.97 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: -12, scale: 0.97 }}
-              transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
-              className="fixed z-40 md:hidden flex flex-col overflow-hidden"
+              exit={{ opacity: 0, y: -14, scale: 0.97 }}
+              transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+              className="fixed z-50 md:hidden flex flex-col overflow-hidden"
               style={{
-                top: scrolled ? 70 : 66,
+                top: scrolled ? 66 : 62,
                 left: scrolled ? 16 : 0,
                 right: scrolled ? 16 : 0,
                 borderRadius: scrolled ? 20 : 0,
                 background: 'rgba(255,249,243,0.97)',
                 backdropFilter: 'blur(28px)',
                 WebkitBackdropFilter: 'blur(28px)',
-                boxShadow: '0 20px 50px rgba(139,94,60,0.2)',
-                border: '1px solid rgba(255,255,255,0.75)',
+                boxShadow: '0 20px 60px rgba(139,94,60,0.22)',
+                border: '1px solid rgba(255,255,255,0.8)',
               }}
             >
-              {navLinks.map((link, i) => (
+              {NAV_LINKS.map((link, i) => (
                 <motion.a
-                  key={link.name}
+                  key={link.label}
                   href={link.href}
-                  initial={{ opacity: 0, x: -12 }}
+                  initial={{ opacity: 0, x: -10 }}
                   animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: 0.04 * i }}
+                  transition={{ delay: i * 0.04 }}
                   onClick={() => setMobileOpen(false)}
-                  className="px-6 py-4 text-base font-semibold border-b last:border-b-0 transition-colors"
+                  className="px-6 py-4 text-base font-semibold border-b last:border-b-0"
                   style={{
                     color: 'hsl(18,18%,16%)',
                     borderColor: 'rgba(139,94,60,0.1)',
@@ -325,7 +349,7 @@ export default function Navigation() {
                     textDecoration: 'none',
                   }}
                 >
-                  {link.name}
+                  {link.label}
                 </motion.a>
               ))}
             </motion.div>
