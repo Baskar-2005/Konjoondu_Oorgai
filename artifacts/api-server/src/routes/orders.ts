@@ -21,19 +21,30 @@ interface Order {
   };
   items: OrderItem[];
   totalAmount: number;
-  status: "pending" | "confirmed";
+  paymentId?: string;
+  status: "pending" | "confirmed" | "shipped" | "delivered" | "cancelled";
   createdAt: string;
 }
 
-// In-memory store until Razorpay / DB integration
+// In-memory store
 const orders = new Map<string, Order>();
 
-// POST /api/orders — place a new order
+function requireAdmin(req: Parameters<Parameters<typeof router.get>[1]>[0], res: Parameters<Parameters<typeof router.get>[1]>[1]): boolean {
+  const token = req.headers["x-admin-token"];
+  if (!token || token !== process.env.ADMIN_SECRET) {
+    res.status(403).json({ success: false, message: "Forbidden." });
+    return false;
+  }
+  return true;
+}
+
+// POST /api/orders — place a new order (after Razorpay payment)
 router.post("/orders", (req, res) => {
-  const { customer, items, totalAmount } = req.body as {
+  const { customer, items, totalAmount, paymentId } = req.body as {
     customer: Order["customer"];
     items: OrderItem[];
     totalAmount: number;
+    paymentId?: string;
   };
 
   if (!customer?.name || !customer?.phone || !items?.length) {
@@ -47,7 +58,8 @@ router.post("/orders", (req, res) => {
     customer,
     items,
     totalAmount,
-    status: "pending",
+    paymentId,
+    status: paymentId ? "confirmed" : "pending",
     createdAt: new Date().toISOString(),
   };
 
@@ -56,23 +68,47 @@ router.post("/orders", (req, res) => {
   res.status(201).json({
     success: true,
     orderId: id,
-    message: "Order received! We'll contact you within 24 hours to confirm.",
+    message: "Order placed successfully.",
     order,
   });
 });
 
-// GET /api/orders/:id — restricted to admin-token header only
+// GET /api/orders — list all orders (admin only)
+router.get("/orders", (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  const allOrders = Array.from(orders.values()).sort(
+    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+  );
+  res.json({ success: true, orders: allOrders, total: allOrders.length });
+});
+
+// GET /api/orders/:id — single order (admin only)
 router.get("/orders/:id", (req, res) => {
-  const token = req.headers["x-admin-token"];
-  if (!token || token !== process.env.ADMIN_SECRET) {
-    res.status(403).json({ success: false, message: "Forbidden." });
-    return;
-  }
+  if (!requireAdmin(req, res)) return;
   const order = orders.get(req.params.id);
   if (!order) {
     res.status(404).json({ success: false, message: "Order not found." });
     return;
   }
+  res.json({ success: true, order });
+});
+
+// PATCH /api/orders/:id/status — update order status (admin only)
+router.patch("/orders/:id/status", (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  const order = orders.get(req.params.id);
+  if (!order) {
+    res.status(404).json({ success: false, message: "Order not found." });
+    return;
+  }
+  const { status } = req.body as { status: Order["status"] };
+  const valid = ["pending", "confirmed", "shipped", "delivered", "cancelled"];
+  if (!valid.includes(status)) {
+    res.status(400).json({ success: false, message: "Invalid status." });
+    return;
+  }
+  order.status = status;
+  orders.set(order.id, order);
   res.json({ success: true, order });
 });
 
