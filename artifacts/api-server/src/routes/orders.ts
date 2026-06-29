@@ -38,14 +38,14 @@ function requireAdmin(req: Parameters<Parameters<typeof router.get>[1]>[0], res:
   return true;
 }
 
-// Send WhatsApp notification via CallMeBot (fire-and-forget)
-async function notifyWhatsApp(order: Order): Promise<void> {
-  const phone = process.env.WHATSAPP_PHONE;
-  const apiKey = process.env.WHATSAPP_API_KEY;
-  if (!phone || !apiKey) return; // silently skip if not configured
+// Send Telegram notification (fire-and-forget)
+async function notifyTelegram(order: Order): Promise<void> {
+  const token = process.env.TELEGRAM_BOT_TOKEN;
+  const chatId = process.env.TELEGRAM_CHAT_ID;
+  if (!token || !chatId) return;
 
   const itemLines = order.items
-    .map(i => `• ${i.productName} (${i.size}) x${i.quantity} = ₹${i.price * i.quantity}`)
+    .map(i => `  • ${i.productName} (${i.size}) ×${i.quantity} = ₹${i.price * i.quantity}`)
     .join("\n");
 
   const text = [
@@ -53,25 +53,31 @@ async function notifyWhatsApp(order: Order): Promise<void> {
     ``,
     `👤 ${order.customer.name}`,
     `📞 ${order.customer.phone}`,
+    order.customer.email ? `📧 ${order.customer.email}` : null,
     `📍 ${order.customer.address}`,
     ``,
+    `*Items:*`,
     itemLines,
     ``,
     `💰 *Total: ₹${order.totalAmount.toLocaleString("en-IN")}*`,
-    order.paymentId ? `✅ Paid via Razorpay: ${order.paymentId}` : `⏳ Payment pending`,
-  ].join("\n");
+    order.paymentId ? `✅ Paid · ${order.paymentId}` : `⏳ Payment pending`,
+  ].filter(l => l !== null).join("\n");
 
-  const url = `https://api.callmebot.com/whatsapp.php?phone=${encodeURIComponent(phone)}&text=${encodeURIComponent(text)}&apikey=${encodeURIComponent(apiKey)}`;
-
+  const url = `https://api.telegram.org/bot${token}/sendMessage`;
   try {
-    const res = await fetch(url);
-    if (!res.ok) {
-      console.warn("[whatsapp] CallMeBot returned", res.status);
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ chat_id: chatId, text, parse_mode: "Markdown" }),
+    });
+    const data = await res.json() as { ok: boolean; description?: string };
+    if (!data.ok) {
+      console.warn("[telegram] API error:", data.description);
     } else {
-      console.info("[whatsapp] Notification sent for order", order.id);
+      console.info("[telegram] Notification sent for order", order.id);
     }
   } catch (err) {
-    console.warn("[whatsapp] Failed to send notification:", err);
+    console.warn("[telegram] Failed to send notification:", err);
   }
 }
 
@@ -110,7 +116,7 @@ router.post("/orders", async (req, res) => {
     order,
   });
 
-  notifyWhatsApp(order); // fire-and-forget — never blocks the response
+  notifyTelegram(order); // fire-and-forget — never blocks the response
 });
 
 // GET /api/orders — list all orders (admin only)
