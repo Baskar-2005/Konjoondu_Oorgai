@@ -5,47 +5,42 @@ import heroImg from '@assets/hero-bg.jpg';
 
 // ── Animated headline — white text on dark overlay ──────────────
 function AnimatedHeadline() {
-  const lines: { words: string[]; accent?: boolean }[] = [
-    { words: ['Every', 'Jar'] },
-    { words: ['Holds', 'a'] },
-    { words: ['Family'], accent: true },
-    { words: ['Tradition.'] },
+  // Each entry is a single line. Words are joined with a real space so they
+  // never merge visually — we render the whole line as one motion.span.
+  const lines: { text: string; accent?: boolean }[] = [
+    { text: 'Every Jar' },
+    { text: 'Holds a' },
+    { text: 'Family', accent: true },
+    { text: 'Tradition.' },
   ];
 
   return (
     <h1 className="mb-8" aria-label="Every Jar Holds a Family Tradition.">
       {lines.map((line, li) => (
         <div key={li} className="overflow-hidden leading-[1.04] mb-0.5">
-          <div className="flex flex-wrap gap-x-[0.28em]">
-            {line.words.map((word, wi) => (
-              <motion.span
-                key={wi}
-                initial={{ y: '115%', opacity: 0 }}
-                animate={{ y: 0, opacity: 1 }}
-                transition={{
-                  delay: 0.08 + li * 0.16 + wi * 0.07,
-                  duration: 0.7,
-                  ease: [0.22, 1, 0.36, 1],
-                }}
-                className="inline-block"
-                style={{
-                  fontFamily: 'Poppins, sans-serif',
-                  fontWeight: 900,
-                  fontSize: 'clamp(42px, 6.8vw, 92px)',
-                  lineHeight: 1.04,
-                  letterSpacing: '-0.025em',
-                  // Warm white for normal words, gold for accent
-                  color: line.accent ? 'hsl(42, 82%, 62%)' : '#FFF9F0',
-                  // Subtle text shadow for depth on dark BG
-                  textShadow: line.accent
-                    ? '0 0 40px rgba(232,182,74,0.4), 0 2px 12px rgba(0,0,0,0.5)'
-                    : '0 2px 16px rgba(0,0,0,0.55)',
-                }}
-              >
-                {word}
-              </motion.span>
-            ))}
-          </div>
+          <motion.span
+            initial={{ y: '115%', opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            transition={{
+              delay: 0.08 + li * 0.16,
+              duration: 0.7,
+              ease: [0.22, 1, 0.36, 1],
+            }}
+            className="block"
+            style={{
+              fontFamily: 'Poppins, sans-serif',
+              fontWeight: 900,
+              fontSize: 'clamp(42px, 6.8vw, 92px)',
+              lineHeight: 1.04,
+              letterSpacing: '-0.025em',
+              color: line.accent ? 'hsl(42, 82%, 62%)' : '#FFF9F0',
+              textShadow: line.accent
+                ? '0 0 40px rgba(232,182,74,0.4), 0 2px 12px rgba(0,0,0,0.5)'
+                : '0 2px 16px rgba(0,0,0,0.55)',
+            }}
+          >
+            {line.text}
+          </motion.span>
         </div>
       ))}
     </h1>

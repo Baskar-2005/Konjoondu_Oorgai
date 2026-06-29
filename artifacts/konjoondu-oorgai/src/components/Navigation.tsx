@@ -103,7 +103,7 @@ export default function Navigation() {
             <motion.span animate={{ scale: scrolled ? 0.88 : 1 }} transition={SPRING} style={{ display: 'block' }}>
               <LogoMark size={scrolled ? 30 : 36} />
             </motion.span>
-            <span className="flex flex-col leading-none overflow-hidden">
+            <span className="flex flex-col leading-none">
               <motion.span
                 animate={{ fontSize: scrolled ? '14px' : '19px' }}
                 transition={SPRING}
