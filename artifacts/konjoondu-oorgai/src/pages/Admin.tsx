@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   ShoppingBag, Package, Truck, CheckCircle2, XCircle, Clock,
   RefreshCw, LogOut, ChevronDown, Search, User, Phone, Mail,
-  MapPin, CreditCard, Calendar, AlertCircle,
+  MapPin, CreditCard, Calendar, AlertCircle, FlaskConical,
 } from 'lucide-react';
 
 const API_BASE = import.meta.env.BASE_URL?.replace(/\/$/, '');
@@ -121,6 +121,62 @@ export default function AdminPage() {
     } finally {
       setUpdatingId(null);
     }
+  }
+
+  const [seeding, setSeeding] = useState(false);
+
+  async function seedDemoOrders() {
+    setSeeding(true);
+    const demos = [
+      {
+        customer: { name: 'Karthik Rajan', phone: '9876543210', email: 'karthik@example.com', address: '14, Nehru Street, Cuddalore - 607001' },
+        items: [{ productId: 1, productName: 'Prawn Pickle', size: '250g', price: 220, quantity: 2 }, { productId: 2, productName: 'Chicken Pickle', size: '500g', price: 380, quantity: 1 }],
+        totalAmount: 820, paymentId: 'pay_demo_QkR9xZ3mVc',
+      },
+      {
+        customer: { name: 'Meena Sundaram', phone: '9444112233', email: 'meena.s@gmail.com', address: '7/3, Raja Nagar, Chidambaram - 608001' },
+        items: [{ productId: 3, productName: 'Squid Pickle', size: '250g', price: 260, quantity: 1 }],
+        totalAmount: 260, paymentId: 'pay_demo_Lp7wYn2bAj',
+      },
+      {
+        customer: { name: 'Selvam Murugan', phone: '8012345678', email: '', address: '22, Fishermen Colony, Cuddalore Port - 607003' },
+        items: [{ productId: 4, productName: 'Mutton Pickle', size: '500g', price: 450, quantity: 1 }, { productId: 1, productName: 'Prawn Pickle', size: '100g', price: 120, quantity: 3 }],
+        totalAmount: 810, paymentId: 'pay_demo_Ht4sKm8vWe',
+      },
+      {
+        customer: { name: 'Priya Anand', phone: '9500667788', email: 'priya.a@outlook.com', address: '5, Gandhi Road, Villupuram - 605602' },
+        items: [{ productId: 2, productName: 'Chicken Pickle', size: '250g', price: 210, quantity: 2 }],
+        totalAmount: 420, paymentId: undefined,
+      },
+      {
+        customer: { name: 'Ravi Kumar', phone: '7299001122', email: 'ravi.k@yahoo.com', address: '88, Anna Salai, Chennai - 600002' },
+        items: [{ productId: 3, productName: 'Squid Pickle', size: '500g', price: 490, quantity: 1 }, { productId: 4, productName: 'Mutton Pickle', size: '250g', price: 270, quantity: 2 }],
+        totalAmount: 1030, paymentId: 'pay_demo_Cq2xJn9pFr',
+      },
+    ];
+
+    const statuses: Order['status'][] = ['delivered', 'shipped', 'confirmed', 'pending', 'delivered'];
+
+    for (let i = 0; i < demos.length; i++) {
+      const d = demos[i];
+      try {
+        const res = await fetch(`${API_BASE}/api/orders`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(d),
+        });
+        const data = await res.json();
+        if (data.success && statuses[i] !== 'pending') {
+          await fetch(`${API_BASE}/api/orders/${data.orderId}/status`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json', 'x-admin-token': token },
+            body: JSON.stringify({ status: statuses[i] }),
+          });
+        }
+      } catch { /* skip */ }
+    }
+    await fetchOrders(token);
+    setSeeding(false);
   }
 
   function logout() {
@@ -247,6 +303,16 @@ export default function AdminPage() {
               Last updated {lastFetched.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
             </p>
           )}
+          <button onClick={seedDemoOrders} disabled={seeding}
+            style={{
+              padding: '7px 14px', borderRadius: 10, border: 'none', cursor: seeding ? 'not-allowed' : 'pointer',
+              background: 'rgba(124,58,237,0.25)', color: '#c4b5fd',
+              display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 600, fontFamily: 'inherit',
+              opacity: seeding ? 0.7 : 1,
+            }}>
+            <FlaskConical size={13} />
+            {seeding ? 'Seeding…' : 'Load Demo Orders'}
+          </button>
           <button onClick={() => fetchOrders(token)}
             style={{
               padding: '7px 14px', borderRadius: 10, border: 'none', cursor: 'pointer',
@@ -321,7 +387,7 @@ export default function AdminPage() {
             {['all', ...ALL_STATUSES].map(s => (
               <button key={s} onClick={() => setFilterStatus(s)}
                 style={{
-                  padding: '7px 14px', borderRadius: 10, border: 'none', cursor: 'pointer',
+                  padding: '7px 14px', borderRadius: 10, cursor: 'pointer',
                   fontSize: 12, fontWeight: 600, fontFamily: 'inherit',
                   background: filterStatus === s ? 'hsl(4,60%,44%)' : 'hsl(30,100%,98%)',
                   color: filterStatus === s ? '#FFF9F0' : 'hsl(25,38%,45%)',
@@ -356,9 +422,23 @@ export default function AdminPage() {
             <p style={{ fontWeight: 700, fontSize: 16, color: 'hsl(18,18%,20%)', marginBottom: 6 }}>
               {orders.length === 0 ? 'No orders yet' : 'No orders match your filter'}
             </p>
-            <p style={{ fontSize: 13, color: 'hsl(25,38%,50%)' }}>
+            <p style={{ fontSize: 13, color: 'hsl(25,38%,50%)', marginBottom: orders.length === 0 ? 20 : 0 }}>
               {orders.length === 0 ? 'Orders will appear here once customers check out.' : 'Try adjusting your search or filter.'}
             </p>
+            {orders.length === 0 && (
+              <button onClick={seedDemoOrders} disabled={seeding}
+                style={{
+                  margin: '0 auto', display: 'flex', alignItems: 'center', gap: 8,
+                  padding: '11px 22px', borderRadius: 14, border: 'none',
+                  background: 'linear-gradient(135deg, hsl(258,60%,54%), hsl(258,60%,44%))',
+                  color: '#fff', fontWeight: 700, fontSize: 14, cursor: seeding ? 'not-allowed' : 'pointer',
+                  fontFamily: 'inherit', boxShadow: '0 6px 20px rgba(124,58,237,0.3)',
+                  opacity: seeding ? 0.7 : 1,
+                }}>
+                <FlaskConical size={16} />
+                {seeding ? 'Loading demo orders…' : 'Load Demo Orders'}
+              </button>
+            )}
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
