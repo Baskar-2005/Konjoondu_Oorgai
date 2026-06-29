@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { motion, useInView, AnimatePresence } from 'framer-motion';
 import { Flame, ShoppingCart, ArrowRight, Plus, Minus, Eye } from 'lucide-react';
 import { useLocation } from 'wouter';
@@ -86,6 +86,10 @@ function ProductCard({
   const [selectedSizeIdx, setSelectedSizeIdx] = useState(0);
   const [qty, setQty] = useState(1);
   const [added, setAdded] = useState(false);
+  const addedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Cleanup timer on unmount
+  useEffect(() => () => { if (addedTimer.current) clearTimeout(addedTimer.current); }, []);
 
   const selectedSize: ProductSize = product.sizes[selectedSizeIdx];
 
@@ -99,8 +103,9 @@ function ProductCard({
       image: product.image,
       tag: product.tag,
     }, qty);
+    if (addedTimer.current) clearTimeout(addedTimer.current);
     setAdded(true);
-    setTimeout(() => setAdded(false), 1800);
+    addedTimer.current = setTimeout(() => setAdded(false), 1800);
   }
 
   return (

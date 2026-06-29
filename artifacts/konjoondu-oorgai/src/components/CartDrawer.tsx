@@ -26,10 +26,9 @@ function CartDrawerContent() {
 
   // Reset step to 'cart' whenever drawer closes
   useEffect(() => {
-    if (!isOpen) {
-      const t = setTimeout(() => setStep('cart'), 350);
-      return () => clearTimeout(t);
-    }
+    if (isOpen) return;
+    const t = setTimeout(() => setStep('cart'), 350);
+    return () => clearTimeout(t);
   }, [isOpen]);
 
   // Prevent body scroll when open
