@@ -3,87 +3,87 @@ import { motion, useScroll, useTransform, useInView } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Flame } from 'lucide-react';
 
-import mangoImg from '@assets/pickle-mango.jpg';
-import lemonImg from '@assets/pickle-lemon.jpg';
-import garlicImg from '@assets/pickle-garlic.jpg';
-import mixedImg from '@assets/pickle-mixed.jpg';
-import vaalaiImg from '@assets/pickle-vaalai.jpg';
-import gonguraImg from '@assets/pickle-gongura.jpg';
-import tomatoImg from '@assets/pickle-tomato.jpg';
-import citronImg from '@assets/pickle-citron.jpg';
-
+// Placeholder images for non-veg pickles (will be replaced when drive images are downloaded)
 const products = [
   {
     id: 1,
-    name: 'Mango Pickle',
-    description: 'Fresh Rajapalayam mangoes cut and marinated with our signature blend of traditional spices.',
-    spiceLevel: 3,
-    price: '₹250',
-    image: mangoImg,
-    color: 'bg-yellow-500/10 border-yellow-500/20'
+    name: 'Prawn Pickle',
+    description: 'Juicy prawns marinated in a bold blend of red chillies, gingelly oil, and traditional spices. A coastal delicacy in a jar.',
+    spiceLevel: 4,
+    price: '₹350',
+    image: 'https://images.unsplash.com/photo-1565557623262-b51c2513a641?w=600&q=80',
+    color: 'bg-orange-500/10 border-orange-500/20',
+    badge: '🔴 Non-Veg'
   },
   {
     id: 2,
-    name: 'Lemon Pickle',
-    description: 'Juicy lemons sun-cured to perfection. Tangy, slightly sweet, and immensely flavorful.',
-    spiceLevel: 2,
-    price: '₹220',
-    image: lemonImg,
-    color: 'bg-amber-500/10 border-amber-500/20'
+    name: 'Fish Pickle',
+    description: 'Sun-dried country fish slow-cooked in tamarind, chilli, and aromatic spices. Deep, bold flavour that lasts.',
+    spiceLevel: 3,
+    price: '₹320',
+    image: 'https://images.unsplash.com/photo-1604908177453-7462950a6a3b?w=600&q=80',
+    color: 'bg-amber-500/10 border-amber-500/20',
+    badge: '🔴 Non-Veg'
   },
   {
     id: 3,
-    name: 'Garlic Pickle',
-    description: 'Peeled garlic cloves roasted in gingelly oil and mixed with fiery ground spices.',
+    name: 'Chicken Pickle',
+    description: 'Tender chicken pieces slow-roasted and pickled in mustard oil with fiery whole spices. Finger-licking good.',
     spiceLevel: 4,
-    price: '₹300',
-    image: garlicImg,
-    color: 'bg-orange-500/10 border-orange-500/20'
+    price: '₹380',
+    image: 'https://images.unsplash.com/photo-1602491453631-e2a5ad90a131?w=600&q=80',
+    color: 'bg-red-500/10 border-red-500/20',
+    badge: '🔴 Non-Veg'
   },
   {
     id: 4,
-    name: 'Mixed Vegetable',
-    description: 'A crunchy medley of carrots, mangoes, and chilies. The perfect versatile side.',
-    spiceLevel: 3,
-    price: '₹260',
-    image: mixedImg,
-    color: 'bg-red-500/10 border-red-500/20'
+    name: 'Mutton Pickle',
+    description: 'Slow-cooked mutton pieces with bone, marinated in a powerful masala that gets better with every passing day.',
+    spiceLevel: 5,
+    price: '₹420',
+    image: 'https://images.unsplash.com/photo-1574484284002-952d92456975?w=600&q=80',
+    color: 'bg-rose-600/10 border-rose-600/20',
+    badge: '🔴 Non-Veg'
   },
   {
     id: 5,
-    name: 'Vaalai Thokku',
-    description: 'Tender banana stem cooked down into a rich, savory, and uniquely textured thokku.',
+    name: 'Anchovies Pickle',
+    description: 'Tiny nethili fish packed with omega-3, turned into an intensely savoury and spicy pickle. Perfect with rice.',
     spiceLevel: 4,
-    price: '₹280',
-    image: vaalaiImg,
-    color: 'bg-green-600/10 border-green-600/20'
+    price: '₹300',
+    image: 'https://images.unsplash.com/photo-1559847844-5315695dadae?w=600&q=80',
+    color: 'bg-yellow-600/10 border-yellow-600/20',
+    badge: '🔴 Non-Veg'
   },
   {
     id: 6,
-    name: 'Gongura Pickle',
-    description: 'The iconic tangy sorrel leaves from Andhra, tempered with mustard and dried red chilies.',
+    name: 'Crab Pickle',
+    description: 'Fresh crab cooked in a rich, spicy oil-based masala. Rare, indulgent, and deeply satisfying.',
     spiceLevel: 5,
-    price: '₹290',
-    image: gonguraImg,
-    color: 'bg-green-700/10 border-green-700/20'
+    price: '₹450',
+    image: 'https://images.unsplash.com/photo-1519708227418-c8fd9a32b7a2?w=600&q=80',
+    color: 'bg-orange-700/10 border-orange-700/20',
+    badge: '🔴 Non-Veg'
   },
   {
     id: 7,
-    name: 'Tomato Thokku',
-    description: 'Ripe country tomatoes slow-cooked into a tangy, sweet, and spicy jam-like consistency.',
-    spiceLevel: 2,
-    price: '₹240',
-    image: tomatoImg,
-    color: 'bg-red-600/10 border-red-600/20'
+    name: 'Egg Pickle',
+    description: 'Hard-boiled eggs cured in a tangy, spicy vinegar-based brine. A unique homestyle treat.',
+    spiceLevel: 3,
+    price: '₹280',
+    image: 'https://images.unsplash.com/photo-1607532941433-304659e8198a?w=600&q=80',
+    color: 'bg-amber-400/10 border-amber-400/20',
+    badge: '🔴 Non-Veg'
   },
   {
     id: 8,
-    name: 'Citron Pickle',
-    description: 'Narthangai (Citron) known for its digestive properties, cured for weeks for a deep flavor.',
-    spiceLevel: 1,
-    price: '₹260',
-    image: citronImg,
-    color: 'bg-lime-500/10 border-lime-500/20'
+    name: 'Mixed Non-Veg Pickle',
+    description: 'A bold combination of prawn, fish, and chicken pickled together in our signature masala blend.',
+    spiceLevel: 5,
+    price: '₹400',
+    image: 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=600&q=80',
+    color: 'bg-red-700/10 border-red-700/20',
+    badge: '🔴 Non-Veg'
   }
 ];
 
@@ -107,9 +107,13 @@ export default function ProductShowcase() {
           viewport={{ once: true, margin: "-100px" }}
           transition={{ duration: 0.8 }}
         >
+          <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-widest mb-6 border"
+            style={{ background: 'rgba(181,58,46,0.08)', color: 'hsl(4,60%,44%)', borderColor: 'rgba(181,58,46,0.2)' }}>
+            🔴 Non-Veg Only
+          </span>
           <h2 className="text-4xl md:text-5xl font-bold mb-6">Our Handcrafted Range</h2>
           <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-            Small batches. Authentic recipes. Prepared exactly how our grandmothers taught us.
+            Small batches. Bold flavours. Prepared with the finest meats and seafood — exactly how our grandmothers taught us.
           </p>
         </motion.div>
 
@@ -146,6 +150,9 @@ function ProductCard({ product, index }: { product: any, index: number }) {
         <div className="absolute top-4 right-4 bg-background/90 backdrop-blur text-foreground px-3 py-1 rounded-full text-sm font-bold shadow-lg">
           {product.price}
         </div>
+        <div className="absolute top-4 left-4 bg-red-600/90 backdrop-blur text-white px-2.5 py-1 rounded-full text-xs font-bold shadow-lg">
+          Non-Veg
+        </div>
       </div>
       
       <div className={`p-6 flex-1 flex flex-col ${product.color}`}>
@@ -170,7 +177,7 @@ function ProductCard({ product, index }: { product: any, index: number }) {
         </div>
         
         <Button className="w-full rounded-xl bg-foreground text-background hover:bg-primary hover:text-primary-foreground transition-all duration-300 shadow-md">
-          Add to Cart
+          Order Now
         </Button>
       </div>
     </motion.div>

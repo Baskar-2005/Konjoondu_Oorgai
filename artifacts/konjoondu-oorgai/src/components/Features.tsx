@@ -7,7 +7,7 @@ const features = [
   { icon: ShieldCheck, title: "No Preservatives", desc: "Zero artificial colors, flavors, or chemicals." },
   { icon: Droplets, title: "Cold-pressed Oil", pure: true, desc: "We use only pure sesame (gingelly) oil." },
   { icon: Sun, title: "Sun Cured", desc: "Patiently fermented in natural sunlight." },
-  { icon: Leaf, title: "Premium Ingredients", desc: "Handpicked spices and fresh seasonal produce." },
+  { icon: Leaf, title: "Premium Ingredients", desc: "Handpicked spices, fresh seafood, and quality meats." },
   { icon: Check, title: "Hygienic Prep", desc: "Strictly sanitized environment and utensils." },
   { icon: Box, title: "Small Batches", desc: "Crafted in small quantities for perfect taste." },
   { icon: Star, title: "Loved by Families", desc: "A staple in thousands of South Indian homes." }

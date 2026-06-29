@@ -38,7 +38,7 @@ export default function Contact() {
                 </div>
                 <div>
                   <h4 className="font-bold text-lg">Our Kitchen</h4>
-                  <p className="text-muted-foreground">123 Heritage Lane, Madurai,<br/>Tamil Nadu, India 625001</p>
+                  <p className="text-muted-foreground">Konjoondu Oorgai, Venpa<br/>49, KDR Nagar, Gundusalai Road<br/>Alpet, Cuddalore – 607001</p>
                 </div>
               </div>
               
@@ -48,7 +48,7 @@ export default function Contact() {
                 </div>
                 <div>
                   <h4 className="font-bold text-lg">Call Us</h4>
-                  <p className="text-muted-foreground">+91 98765 43210<br/>Mon-Sat, 9AM to 6PM</p>
+                  <p className="text-muted-foreground">+91 97903 87121<br/>Mon-Sat, 9AM to 6PM</p>
                 </div>
               </div>
 
@@ -58,7 +58,7 @@ export default function Contact() {
                 </div>
                 <div>
                   <h4 className="font-bold text-lg">Email</h4>
-                  <p className="text-muted-foreground">hello@konjoondooorgai.com<br/>wholesale@konjoondooorgai.com</p>
+                  <p className="text-muted-foreground">venpa13g@gmail.com</p>
                 </div>
               </div>
             </div>

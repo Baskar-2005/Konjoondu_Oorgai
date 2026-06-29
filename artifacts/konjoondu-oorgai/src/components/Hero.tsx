@@ -280,9 +280,9 @@ export default function Hero() {
             <Badge delay={1.3} bg="hsl(4,60%,44%)"
               icon={<Heart size={16} strokeWidth={2} style={{ color: '#FFF9F0' }} fill="#FFF9F0" />}
               title="Homemade" sub="Family recipes" />
-            <Badge delay={1.4} bg="hsl(93,32%,40%)"
+            <Badge delay={1.4} bg="hsl(4,58%,42%)"
               icon={<Leaf size={16} strokeWidth={2} style={{ color: '#FFF9F0' }} fill="#FFF9F0" />}
-              title="100% Natural" sub="No preservatives" />
+              title="Non-Veg Only" sub="Fresh meats & seafood" />
             <Badge delay={1.5} bg="hsl(25,38%,44%)"
               icon={<Clock size={16} strokeWidth={2} style={{ color: '#FFF9F0' }} />}
               title="Sun Cured" sub="Traditional process" />

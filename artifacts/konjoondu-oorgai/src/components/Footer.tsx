@@ -1,5 +1,5 @@
 import React from 'react';
-import { Instagram, Facebook, Twitter } from 'lucide-react';
+import { Instagram, Mail, Phone } from 'lucide-react';
 
 export default function Footer() {
   return (
@@ -8,18 +8,19 @@ export default function Footer() {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-12 mb-16">
           <div className="col-span-1 md:col-span-2">
             <h2 className="text-3xl font-bold mb-4 text-primary">Konjoondu Oorgai</h2>
-            <p className="text-background/70 max-w-sm mb-6 leading-relaxed">
+            <p className="text-background/70 max-w-sm mb-2 leading-relaxed">
               Crafted with love, delivered to your table. Bringing the authentic taste of a South Indian grandmother's kitchen to homes everywhere.
             </p>
+            <p className="text-background/50 text-sm mb-6">49, KDR Nagar, Gundusalai Road, Alpet, Cuddalore – 607001</p>
             <div className="flex gap-4">
-              <a href="https://instagram.com" aria-label="Follow us on Instagram" target="_blank" rel="noopener noreferrer" className="w-10 h-10 rounded-full bg-background/10 flex items-center justify-center hover:bg-primary transition-colors">
+              <a href="https://www.instagram.com/konjoonduoorgai?utm_source=qr&igsh=dTNmbjVwZ3FpdW9p" aria-label="Follow us on Instagram" target="_blank" rel="noopener noreferrer" className="w-10 h-10 rounded-full bg-background/10 flex items-center justify-center hover:bg-primary transition-colors">
                 <Instagram size={20} />
               </a>
-              <a href="https://facebook.com" aria-label="Follow us on Facebook" target="_blank" rel="noopener noreferrer" className="w-10 h-10 rounded-full bg-background/10 flex items-center justify-center hover:bg-primary transition-colors">
-                <Facebook size={20} />
+              <a href="mailto:venpa13g@gmail.com" aria-label="Email us" className="w-10 h-10 rounded-full bg-background/10 flex items-center justify-center hover:bg-primary transition-colors">
+                <Mail size={20} />
               </a>
-              <a href="https://twitter.com" aria-label="Follow us on Twitter" target="_blank" rel="noopener noreferrer" className="w-10 h-10 rounded-full bg-background/10 flex items-center justify-center hover:bg-primary transition-colors">
-                <Twitter size={20} />
+              <a href="tel:+919790387121" aria-label="Call us" className="w-10 h-10 rounded-full bg-background/10 flex items-center justify-center hover:bg-primary transition-colors">
+                <Phone size={20} />
               </a>
             </div>
           </div>

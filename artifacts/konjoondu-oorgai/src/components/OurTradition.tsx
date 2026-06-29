@@ -7,9 +7,9 @@ gsap.registerPlugin(ScrollTrigger);
 
 const steps = [
   {
-    title: "Fresh Ingredients",
-    desc: "We source our mangoes, lemons, and vegetables directly from local farmers at peak season.",
-    icon: "🌱"
+    title: "Fresh Catch & Meat",
+    desc: "We source the freshest seafood and meats daily — prawns, fish, crab, chicken, and mutton — picked at their prime.",
+    icon: "🦐"
   },
   {
     title: "Traditional Cleaning",
