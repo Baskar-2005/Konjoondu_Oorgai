@@ -1,259 +1,205 @@
 import React, { useMemo } from 'react';
-import { motion } from 'framer-motion';
 
-// ── Curry Leaf SVG ──────────────────────────────────────────────
+// ─── SVG Elements ─────────────────────────────────────────────────────────────
+
 function CurryLeafSVG({ width, opacity }: { width: number; opacity: number }) {
-  const h = width * 2.2;
   return (
-    <svg width={width} height={h} viewBox="0 0 22 48" fill="none" aria-hidden="true">
-      {/* Main leaf body */}
+    <svg width={width} height={width * 2.4} viewBox="0 0 22 52" fill="none" aria-hidden="true">
       <path
-        d="M11 1 C4 8, 1 18, 5 30 C7 37, 11 44, 11 47 C11 44, 15 37, 17 30 C21 18, 18 8, 11 1Z"
-        fill="hsl(93, 38%, 40%)"
-        opacity={opacity}
+        d="M11 1 C4 8,1 18,5 30 C7 37,11 45,11 51 C11 45,15 37,17 30 C21 18,18 8,11 1Z"
+        fill={`hsla(93,40%,40%,${opacity})`}
       />
-      {/* Midrib */}
-      <path d="M11 3 Q11 24 11 47" stroke="hsl(93, 50%, 25%)" strokeWidth="0.7" opacity={opacity * 0.7} fill="none" />
-      {/* Lateral veins */}
-      <path d="M11 14 Q7 16 5 18 M11 22 Q7 23 5 25 M11 30 Q7 30 6 32" stroke="hsl(93, 50%, 25%)" strokeWidth="0.4" opacity={opacity * 0.5} fill="none" />
-      <path d="M11 14 Q15 16 17 18 M11 22 Q15 23 17 25 M11 30 Q15 30 16 32" stroke="hsl(93, 50%, 25%)" strokeWidth="0.4" opacity={opacity * 0.5} fill="none" />
+      <path d="M11 3 Q11 26 11 51" stroke={`hsla(93,52%,24%,${opacity * 0.6})`} strokeWidth="0.7" fill="none" />
+      <path d="M11 15 Q7 17 5 19 M11 25 Q7 26 5 28 M11 34 Q7 34 6 36" stroke={`hsla(93,50%,24%,${opacity * 0.4})`} strokeWidth="0.4" fill="none" />
+      <path d="M11 15 Q15 17 17 19 M11 25 Q15 26 17 28 M11 34 Q15 34 16 36" stroke={`hsla(93,50%,24%,${opacity * 0.4})`} strokeWidth="0.4" fill="none" />
     </svg>
   );
 }
 
-// ── Mango Leaf SVG ──────────────────────────────────────────────
 function MangoLeafSVG({ width, opacity }: { width: number; opacity: number }) {
-  const h = width * 3.2;
   return (
-    <svg width={width} height={h} viewBox="0 0 24 76" fill="none" aria-hidden="true">
+    <svg width={width} height={width * 3.4} viewBox="0 0 24 80" fill="none" aria-hidden="true">
       <path
-        d="M12 2 C2 14, 0 30, 4 46 C7 57, 12 70, 12 74 C12 70, 17 57, 20 46 C24 30, 22 14, 12 2Z"
-        fill="hsl(88, 30%, 38%)"
-        opacity={opacity}
+        d="M12 2 C2 14,0 32,4 48 C7 59,12 72,12 78 C12 72,17 59,20 48 C24 32,22 14,12 2Z"
+        fill={`hsla(88,32%,36%,${opacity})`}
       />
-      <path d="M12 4 Q12 38 12 74" stroke="hsl(88, 40%, 22%)" strokeWidth="0.8" opacity={opacity * 0.6} fill="none" />
-      <path d="M12 20 Q7 22 4 26 M12 34 Q7 36 4 39 M12 48 Q7 49 5 52" stroke="hsl(88, 40%, 22%)" strokeWidth="0.35" opacity={opacity * 0.45} fill="none" />
-      <path d="M12 20 Q17 22 20 26 M12 34 Q17 36 20 39 M12 48 Q17 49 19 52" stroke="hsl(88, 40%, 22%)" strokeWidth="0.35" opacity={opacity * 0.45} fill="none" />
+      <path d="M12 4 Q12 40 12 78" stroke={`hsla(88,42%,22%,${opacity * 0.55})`} strokeWidth="0.8" fill="none" />
     </svg>
   );
 }
 
-// ── Mango Cube SVG ──────────────────────────────────────────────
 function MangoCubeSVG({ size, opacity }: { size: number; opacity: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 20 20" fill="none" aria-hidden="true">
-      <rect x="2" y="2" width="16" height="16" rx="3" fill="hsl(42, 85%, 62%)" opacity={opacity} />
-      <rect x="3" y="3" width="7" height="5" rx="1.5" fill="rgba(255,255,255,0.3)" opacity={opacity} />
-      <rect x="4" y="10" width="4" height="3" rx="1" fill="rgba(255,255,255,0.15)" opacity={opacity} />
+      <rect x="1" y="1" width="18" height="18" rx="4" fill={`hsla(42,85%,62%,${opacity})`} />
+      <rect x="2.5" y="2.5" width="8" height="5" rx="1.5" fill={`rgba(255,255,255,${opacity * 0.35})`} />
     </svg>
   );
 }
 
-// ── Star Anise SVG ──────────────────────────────────────────────
 function StarAniseSVG({ size, opacity }: { size: number; opacity: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 40 40" fill="none" aria-hidden="true">
-      {/* 8 petals radiating from center */}
       {Array.from({ length: 8 }).map((_, i) => {
-        const angle = (i / 8) * Math.PI * 2;
-        const x1 = 20 + Math.cos(angle) * 4;
-        const y1 = 20 + Math.sin(angle) * 4;
-        const x2 = 20 + Math.cos(angle) * 14;
-        const y2 = 20 + Math.sin(angle) * 14;
-        const cx = 20 + Math.cos(angle) * 9;
-        const cy = 20 + Math.sin(angle) * 9;
+        const a = (i / 8) * Math.PI * 2;
+        const cx = 20 + Math.cos(a) * 9;
+        const cy = 20 + Math.sin(a) * 9;
+        const tipX = 20 + Math.cos(a) * 16;
+        const tipY = 20 + Math.sin(a) * 16;
         return (
           <g key={i}>
-            <ellipse
-              cx={cx} cy={cy}
-              rx="4.5" ry="2.2"
-              transform={`rotate(${(i / 8) * 360}, ${cx}, ${cy})`}
-              fill="hsl(30, 50%, 30%)"
-              opacity={opacity * 0.85}
-            />
-            {/* Seed at tip */}
-            <circle cx={x2} cy={y2} r="2" fill="hsl(25, 50%, 25%)" opacity={opacity} />
+            <ellipse cx={cx} cy={cy} rx="4" ry="2"
+              transform={`rotate(${(i / 8) * 360},${cx},${cy})`}
+              fill={`hsla(30,48%,30%,${opacity * 0.85})`} />
+            <circle cx={tipX} cy={tipY} r="1.8" fill={`hsla(25,50%,26%,${opacity})`} />
           </g>
         );
       })}
-      {/* Center */}
-      <circle cx="20" cy="20" r="3.5" fill="hsl(25, 45%, 28%)" opacity={opacity} />
-      <circle cx="20" cy="20" r="1.5" fill="hsl(42, 60%, 55%)" opacity={opacity * 0.8} />
+      <circle cx="20" cy="20" r="3.5" fill={`hsla(25,45%,28%,${opacity})`} />
+      <circle cx="20" cy="20" r="1.5" fill={`hsla(42,60%,55%,${opacity * 0.8})`} />
     </svg>
   );
 }
 
-// ── Particle definitions ─────────────────────────────────────────
-type ParticleType = 'curry' | 'mango-leaf' | 'mango-cube' | 'star-anise';
+function MustardSeedSVG({ size, opacity }: { size: number; opacity: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 10 10" aria-hidden="true">
+      <circle cx="5" cy="5" r="4" fill={`hsla(45,75%,60%,${opacity})`} />
+      <circle cx="4" cy="4" r="1.5" fill={`rgba(255,255,255,${opacity * 0.3})`} />
+    </svg>
+  );
+}
+
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+type PType = 'curry' | 'mango-leaf' | 'mango-cube' | 'star-anise' | 'mustard';
 
 interface Particle {
-  id: number;
-  type: ParticleType;
-  x: number;          // start x (vw)
+  id: number; type: PType;
+  x: number;         // vw %
   size: number;
   opacity: number;
   duration: number;
   delay: number;
-  driftX: number;     // horizontal drift (px)
-  rotation: number;   // end rotation
-  rotationDir: number; // 1 or -1
+  driftX: number;    // total horizontal px drift
+  rotEnd: number;    // final rotation deg
+  bouncy: boolean;
 }
 
-function rand(min: number, max: number) {
-  return Math.random() * (max - min) + min;
+function rnd(min: number, max: number) { return Math.random() * (max - min) + min; }
+function coin() { return Math.random() > 0.5 ? 1 : -1; }
+
+function buildParticles(): Particle[] {
+  const list: Particle[] = [];
+  let id = 0;
+
+  const add = (type: PType, count: number, opts: Partial<Particle>) => {
+    for (let i = 0; i < count; i++) {
+      list.push({
+        id: id++, type,
+        x: rnd(0, 100),
+        size: rnd(10, 20),
+        opacity: rnd(0.45, 0.75),
+        duration: rnd(14, 28),
+        delay: rnd(0, 22),
+        driftX: rnd(60, 130) * coin(),
+        rotEnd: rnd(200, 560) * coin(),
+        bouncy: false,
+        ...opts,
+      });
+    }
+  };
+
+  // 🥇 Curry leaves — dominant, authentic South Indian feel
+  add('curry',      16, { size: rnd(10, 24), duration: rnd(14, 26), opacity: rnd(0.5, 0.75) });
+  // 🥈 Mango leaves — graceful, slow
+  add('mango-leaf',  7, { size: rnd(14, 28), duration: rnd(22, 38), opacity: rnd(0.3, 0.5), driftX: rnd(30, 60) * coin() });
+  // 🥭 Mango cubes — tiny, bouncy
+  add('mango-cube',  9, { size: rnd(6, 13), duration: rnd(10, 20), opacity: rnd(0.45, 0.7), bouncy: true });
+  // ⭐ Star anise — rotate as they fall
+  add('star-anise',  6, { size: rnd(14, 22), duration: rnd(18, 32), opacity: rnd(0.3, 0.52), rotEnd: rnd(720, 1440) });
+  // · Mustard seeds — tiny, plentiful
+  add('mustard',    14, { size: rnd(4, 8),  duration: rnd(10, 18), opacity: rnd(0.5, 0.8), driftX: rnd(10, 35) * coin() });
+
+  return list;
 }
 
-function useParticles(): Particle[] {
-  return useMemo(() => {
-    const particles: Particle[] = [];
-    let id = 0;
+// ─── CSS keyframe stylesheet injected once ────────────────────────────────────
 
-    // 🥇 Curry leaves — best, most abundant
-    for (let i = 0; i < 14; i++) {
-      particles.push({
-        id: id++,
-        type: 'curry',
-        x: rand(0, 100),
-        size: rand(10, 24),
-        opacity: rand(0.45, 0.75),
-        duration: rand(14, 26),
-        delay: rand(0, 16),
-        driftX: rand(-90, 90),   // wind effect
-        rotation: rand(200, 520),
-        rotationDir: Math.random() > 0.5 ? 1 : -1,
-      });
-    }
+const STYLE_ID = 'ko-ambient-style';
 
-    // 🥈 Mango leaves — a few, larger, slower
-    for (let i = 0; i < 6; i++) {
-      particles.push({
-        id: id++,
-        type: 'mango-leaf',
-        x: rand(0, 100),
-        size: rand(14, 28),
-        opacity: rand(0.3, 0.55),
-        duration: rand(20, 36),
-        delay: rand(0, 18),
-        driftX: rand(-50, 50),
-        rotation: rand(100, 280),
-        rotationDir: Math.random() > 0.5 ? 1 : -1,
-      });
-    }
+function injectStyles(particles: Particle[]) {
+  if (document.getElementById(STYLE_ID)) return;
+  const rules = particles.map((p) => {
+    const driftMid = p.driftX * 0.45;
+    const driftAlt = p.driftX * (p.bouncy ? -0.3 : 0.8);
+    const scaleFrames = p.bouncy
+      ? `transform: translateX(${driftMid}px) rotate(${p.rotEnd * 0.5}deg) scale(1.1);`
+      : `transform: translateX(${driftAlt}px) rotate(${p.rotEnd * 0.7}deg) scale(1);`;
 
-    // 🥭 Mango cubes — tiny, soft bounce feel
-    for (let i = 0; i < 8; i++) {
-      particles.push({
-        id: id++,
-        type: 'mango-cube',
-        x: rand(0, 100),
-        size: rand(6, 13),
-        opacity: rand(0.4, 0.7),
-        duration: rand(12, 22),
-        delay: rand(0, 20),
-        driftX: rand(-30, 30),
-        rotation: rand(90, 360),
-        rotationDir: Math.random() > 0.5 ? 1 : -1,
-      });
-    }
+    return `
+      @keyframes ko-fall-${p.id} {
+        0%   { transform: translateY(0px)   translateX(0)              rotate(0deg)          scale(${p.bouncy ? 0.8 : 1}); opacity: 0; }
+        5%   { opacity: ${p.opacity}; }
+        45%  { ${scaleFrames} }
+        90%  { transform: translateY(calc(100vh + 60px)) translateX(${p.driftX}px) rotate(${p.rotEnd}deg) scale(${p.bouncy ? 1.05 : 1}); opacity: ${p.opacity * 0.8}; }
+        100% { transform: translateY(calc(100vh + 80px)) translateX(${p.driftX}px) rotate(${p.rotEnd}deg) scale(${p.bouncy ? 0.9 : 1}); opacity: 0; }
+      }
+      .ko-p-${p.id} {
+        position: absolute;
+        left: ${p.x}vw;
+        top: -60px;
+        width: ${p.size}px;
+        animation: ko-fall-${p.id} ${p.duration}s ${p.delay}s linear infinite;
+        will-change: transform, opacity;
+        pointer-events: none;
+      }
+    `;
+  }).join('\n');
 
-    // ⭐ Star anise — a few, rotate while falling
-    for (let i = 0; i < 5; i++) {
-      particles.push({
-        id: id++,
-        type: 'star-anise',
-        x: rand(0, 100),
-        size: rand(14, 22),
-        opacity: rand(0.3, 0.55),
-        duration: rand(18, 30),
-        delay: rand(0, 22),
-        driftX: rand(-20, 20),
-        rotation: rand(540, 1080),
-        rotationDir: 1,
-      });
-    }
-
-    return particles;
-  }, []);
+  const style = document.createElement('style');
+  style.id = STYLE_ID;
+  style.textContent = rules;
+  document.head.appendChild(style);
 }
+
+// ─── Component ────────────────────────────────────────────────────────────────
 
 export default function AmbientEffects() {
-  const particles = useParticles();
+  const particles = useMemo(buildParticles, []);
+
+  React.useEffect(() => { injectStyles(particles); }, [particles]);
 
   return (
     <div
-      className="fixed inset-0 pointer-events-none z-0 overflow-hidden"
+      className="fixed inset-0 z-[1] overflow-hidden pointer-events-none"
       aria-hidden="true"
     >
-      {particles.map((p) => {
-        const Component = {
-          curry: CurryLeafSVG,
-          'mango-leaf': MangoLeafSVG,
-          'mango-cube': MangoCubeSVG,
-          'star-anise': StarAniseSVG,
-        }[p.type];
+      {particles.map((p) => (
+        <div key={p.id} className={`ko-p-${p.id}`}>
+          {p.type === 'curry'      && <CurryLeafSVG  width={p.size} opacity={p.opacity} />}
+          {p.type === 'mango-leaf' && <MangoLeafSVG  width={p.size} opacity={p.opacity} />}
+          {p.type === 'mango-cube' && <MangoCubeSVG  size={p.size}  opacity={p.opacity} />}
+          {p.type === 'star-anise' && <StarAniseSVG  size={p.size}  opacity={p.opacity} />}
+          {p.type === 'mustard'    && <MustardSeedSVG size={p.size} opacity={p.opacity} />}
+        </div>
+      ))}
 
-        // Mango cubes get a bounce path; others fall straight down with drift
-        const isCube = p.type === 'mango-cube';
-        const isStarAnise = p.type === 'star-anise';
-
-        // Y travel: slightly beyond viewport
-        const yEnd = typeof window !== 'undefined' ? window.innerHeight + 80 : 900;
-
-        return (
-          <motion.div
-            key={p.id}
-            style={{
-              position: 'absolute',
-              left: `${p.x}vw`,
-              top: -60,
-              width: p.size,
-              willChange: 'transform, opacity',
-            }}
-            animate={{
-              y: isCube
-                ? [0, yEnd * 0.3, yEnd * 0.7, yEnd]
-                : [0, yEnd],
-              x: isCube
-                ? [0, p.driftX * 0.4, p.driftX * -0.4, p.driftX * 0.2]
-                : [0, p.driftX * 0.4, p.driftX, p.driftX * 0.6, p.driftX],
-              rotate: [0, p.rotation * p.rotationDir],
-              opacity: [0, p.opacity, p.opacity, p.opacity * 0.8, 0],
-              // Mango cubes scale slightly to simulate bounce depth
-              scale: isCube ? [0.8, 1, 0.9, 1.05, 1] : 1,
-            }}
-            transition={{
-              duration: p.duration,
-              delay: p.delay,
-              repeat: Infinity,
-              ease: isCube ? [0.22, 0.8, 0.6, 1] : 'linear',
-              times: isCube
-                ? [0, 0.3, 0.7, 1]
-                : [0, 0.08, 0.92, 0.96, 1],
-            }}
-          >
-            {p.type === 'curry' && <CurryLeafSVG width={p.size} opacity={p.opacity} />}
-            {p.type === 'mango-leaf' && <MangoLeafSVG width={p.size} opacity={p.opacity} />}
-            {p.type === 'mango-cube' && <MangoCubeSVG size={p.size} opacity={p.opacity} />}
-            {p.type === 'star-anise' && <StarAniseSVG size={p.size} opacity={p.opacity} />}
-          </motion.div>
-        );
-      })}
-
-      {/* Warm atmospheric gradient overlay */}
+      {/* Warm atmospheric overlays */}
       <div
-        className="absolute inset-0"
         style={{
+          position: 'absolute', inset: 0,
           background:
-            'radial-gradient(ellipse 80% 50% at 20% 20%, rgba(232,182,74,0.06) 0%, transparent 60%), ' +
-            'radial-gradient(ellipse 60% 40% at 80% 80%, rgba(107,142,74,0.05) 0%, transparent 60%)',
-          pointerEvents: 'none',
+            'radial-gradient(ellipse 70% 50% at 15% 20%, rgba(232,182,74,0.055) 0%, transparent 60%),' +
+            'radial-gradient(ellipse 55% 40% at 85% 75%, rgba(107,142,74,0.045) 0%, transparent 60%)',
         }}
       />
-
-      {/* Subtle noise texture */}
+      {/* Noise grain texture */}
       <div
-        className="absolute inset-0 opacity-[0.025] mix-blend-overlay dark:opacity-[0.04]"
         style={{
+          position: 'absolute', inset: 0,
+          opacity: 0.025,
+          mixBlendMode: 'overlay',
           backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")`,
           backgroundSize: '256px 256px',
         }}
