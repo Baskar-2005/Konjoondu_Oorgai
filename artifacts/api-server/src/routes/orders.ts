@@ -38,8 +38,45 @@ function requireAdmin(req: Parameters<Parameters<typeof router.get>[1]>[0], res:
   return true;
 }
 
+// Send WhatsApp notification via CallMeBot (fire-and-forget)
+async function notifyWhatsApp(order: Order): Promise<void> {
+  const phone = process.env.WHATSAPP_PHONE;
+  const apiKey = process.env.WHATSAPP_API_KEY;
+  if (!phone || !apiKey) return; // silently skip if not configured
+
+  const itemLines = order.items
+    .map(i => `• ${i.productName} (${i.size}) x${i.quantity} = ₹${i.price * i.quantity}`)
+    .join("\n");
+
+  const text = [
+    `🛒 *New Order — ${order.id}*`,
+    ``,
+    `👤 ${order.customer.name}`,
+    `📞 ${order.customer.phone}`,
+    `📍 ${order.customer.address}`,
+    ``,
+    itemLines,
+    ``,
+    `💰 *Total: ₹${order.totalAmount.toLocaleString("en-IN")}*`,
+    order.paymentId ? `✅ Paid via Razorpay: ${order.paymentId}` : `⏳ Payment pending`,
+  ].join("\n");
+
+  const url = `https://api.callmebot.com/whatsapp.php?phone=${encodeURIComponent(phone)}&text=${encodeURIComponent(text)}&apikey=${encodeURIComponent(apiKey)}`;
+
+  try {
+    const res = await fetch(url);
+    if (!res.ok) {
+      console.warn("[whatsapp] CallMeBot returned", res.status);
+    } else {
+      console.info("[whatsapp] Notification sent for order", order.id);
+    }
+  } catch (err) {
+    console.warn("[whatsapp] Failed to send notification:", err);
+  }
+}
+
 // POST /api/orders — place a new order (after Razorpay payment)
-router.post("/orders", (req, res) => {
+router.post("/orders", async (req, res) => {
   const { customer, items, totalAmount, paymentId } = req.body as {
     customer: Order["customer"];
     items: OrderItem[];
@@ -65,12 +102,15 @@ router.post("/orders", (req, res) => {
 
   orders.set(id, order);
 
+  // Respond immediately, notify in background
   res.status(201).json({
     success: true,
     orderId: id,
     message: "Order placed successfully.",
     order,
   });
+
+  notifyWhatsApp(order); // fire-and-forget — never blocks the response
 });
 
 // GET /api/orders — list all orders (admin only)
