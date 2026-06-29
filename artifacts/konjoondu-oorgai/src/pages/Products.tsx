@@ -156,13 +156,13 @@ function ProductCard({ product, index, onViewDetails }: {
       animate={isInView ? { opacity: 1, y: 0 } : {}}
       transition={{ duration: 0.5, delay: (index % 4) * 0.07 }}
       className="rounded-2xl overflow-hidden flex flex-col border shadow-sm hover:shadow-md transition-shadow duration-300"
-      style={{ borderColor: 'rgba(139,94,60,0.12)', background: 'var(--background)' }}
+      style={{ borderColor: 'rgba(139,94,60,0.12)', background: 'hsl(var(--background))' }}
     >
       {/* ── Image ── */}
-      <div className="relative h-48 overflow-hidden bg-muted flex-shrink-0 group">
+      <div className="relative h-56 overflow-hidden bg-muted flex-shrink-0 group">
         <img src={product.image} alt={product.name}
           className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/25 via-transparent to-transparent" />
 
         {/* Tag */}
         <div className="absolute top-3 left-3 px-2.5 py-0.5 rounded-full text-[11px] font-bold text-white shadow"

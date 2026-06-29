@@ -118,7 +118,7 @@ function CartDrawerContent() {
               zIndex: 9999,
               display: 'flex',
               flexDirection: 'column',
-              background: 'var(--background)',
+              background: 'hsl(var(--background))',
               boxShadow: '-8px 0 40px rgba(0,0,0,0.18)',
             }}
           >
@@ -371,7 +371,7 @@ function CartDrawerContent() {
                 padding: '16px 20px',
                 borderTop: '1px solid rgba(139,94,60,0.12)',
                 flexShrink: 0,
-                background: 'var(--background)',
+                background: 'hsl(var(--background))',
               }}>
                 {step === 'cart' && (
                   <>
@@ -421,7 +421,7 @@ function CartDrawerContent() {
               </div>
             )}
             {step === 'confirmed' && (
-              <div style={{ padding: '16px 20px', borderTop: '1px solid rgba(139,94,60,0.12)', flexShrink: 0, background: 'var(--background)' }}>
+              <div style={{ padding: '16px 20px', borderTop: '1px solid rgba(139,94,60,0.12)', flexShrink: 0, background: 'hsl(var(--background))' }}>
                 <button
                   onClick={closeCart}
                   style={{

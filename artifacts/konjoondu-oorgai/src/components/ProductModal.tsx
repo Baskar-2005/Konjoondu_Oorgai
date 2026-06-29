@@ -67,7 +67,7 @@ function ModalInner({ product, onClose }: { product: Product; onClose: () => voi
             width: '100%', maxWidth: 660,
             maxHeight: 'calc(100vh - 32px)',
             borderRadius: 24,
-            background: 'var(--background)',
+            background: 'hsl(var(--background))',
             boxShadow: '0 24px 80px rgba(0,0,0,0.4)',
             border: '1px solid rgba(181,58,46,0.15)',
             overflow: 'hidden',
@@ -209,7 +209,7 @@ function ModalInner({ product, onClose }: { product: Product; onClose: () => voi
           </div>
 
           {/* ── Sticky footer ── */}
-          <div style={{ padding: '14px 24px', borderTop: '1px solid rgba(139,94,60,0.1)', flexShrink: 0, background: 'var(--background)' }}>
+          <div style={{ padding: '14px 24px', borderTop: '1px solid rgba(139,94,60,0.1)', flexShrink: 0, background: 'hsl(var(--background))' }}>
             <button onClick={handleAdd}
               style={{
                 width: '100%', padding: '15px', borderRadius: 18, border: 'none',
