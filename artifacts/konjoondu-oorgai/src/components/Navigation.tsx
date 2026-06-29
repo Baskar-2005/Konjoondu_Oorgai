@@ -105,16 +105,36 @@ export default function Navigation() {
             </motion.span>
             <span className="flex flex-col leading-none">
               <motion.span
-                animate={{ fontSize: scrolled ? '14px' : '19px' }}
+                animate={{
+                  fontSize: scrolled ? '14px' : '19px',
+                  color: scrolled ? 'hsl(4,60%,44%)' : '#FFF9F0',
+                }}
                 transition={SPRING}
-                style={{ fontFamily: 'Poppins,sans-serif', fontWeight: 900, color: scrolled ? 'hsl(4,60%,44%)' : 'hsl(4,60%,44%)', letterSpacing: '-0.02em', lineHeight: 1, display: 'block' }}
+                style={{
+                  fontFamily: 'Poppins,sans-serif',
+                  fontWeight: 900,
+                  letterSpacing: '-0.02em',
+                  lineHeight: 1,
+                  display: 'block',
+                  textShadow: scrolled ? 'none' : '0 1px 6px rgba(0,0,0,0.5)',
+                }}
               >
                 Konjoondu
               </motion.span>
               <motion.span
-                animate={{ fontSize: scrolled ? '8px' : '10px' }}
+                animate={{
+                  fontSize: scrolled ? '8px' : '10px',
+                  color: scrolled ? 'hsl(18,18%,24%)' : 'rgba(255,249,240,0.75)',
+                }}
                 transition={SPRING}
-                style={{ fontFamily: 'Poppins,sans-serif', fontWeight: 700, color: 'hsl(18,18%,24%)', letterSpacing: '0.2em', lineHeight: 1.4, display: 'block' }}
+                style={{
+                  fontFamily: 'Poppins,sans-serif',
+                  fontWeight: 700,
+                  letterSpacing: '0.2em',
+                  lineHeight: 1.4,
+                  display: 'block',
+                  textShadow: scrolled ? 'none' : '0 1px 4px rgba(0,0,0,0.4)',
+                }}
               >
                 OORGAI
               </motion.span>
