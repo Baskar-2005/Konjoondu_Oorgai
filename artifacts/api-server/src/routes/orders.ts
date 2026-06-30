@@ -7,7 +7,7 @@ import {
   trackingStepsTable,
   issuesTable,
 } from "@workspace/db";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, or, ilike } from "drizzle-orm";
 
 const router: IRouter = Router();
 
@@ -182,8 +182,31 @@ router.post("/orders", async (req, res) => {
   notifyTelegram(formatted);
 });
 
-// GET /api/orders — list all orders (admin only)
+// GET /api/orders — list all orders (admin) or by customer email/phone (public)
 router.get("/orders", async (req, res) => {
+  const { customer_email, customer_phone } = req.query as {
+    customer_email?: string;
+    customer_phone?: string;
+  };
+
+  // Public: look up by customer email or phone
+  if (customer_email || customer_phone) {
+    const conditions = [];
+    if (customer_email) conditions.push(ilike(ordersTable.customerEmail, customer_email));
+    if (customer_phone) conditions.push(eq(ordersTable.customerPhone, customer_phone));
+
+    const rows = await db
+      .select()
+      .from(ordersTable)
+      .where(or(...conditions))
+      .orderBy(desc(ordersTable.createdAt));
+
+    const orders = await Promise.all(rows.map(formatOrder));
+    res.json({ success: true, orders, total: orders.length });
+    return;
+  }
+
+  // Admin: full list
   if (!requireAdmin(req, res)) return;
 
   const rows = await db
@@ -192,7 +215,6 @@ router.get("/orders", async (req, res) => {
     .orderBy(desc(ordersTable.createdAt));
 
   const allOrders = await Promise.all(rows.map(formatOrder));
-
   res.json({ success: true, orders: allOrders, total: allOrders.length });
 });
 
