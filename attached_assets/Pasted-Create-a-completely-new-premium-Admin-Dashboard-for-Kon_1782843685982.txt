@@ -1,0 +1,477 @@
+Create a completely new premium Admin Dashboard for Konjoondu Oorgai.
+
+DO NOT copy or reuse the Kasthuribai Admin Dashboard UI.
+
+Instead, use it only as inspiration for the level of professionalism, organization, and functionality.
+
+I want a modern SaaS-style admin dashboard with your own premium design ideas.
+
+======================================================
+DESIGN REQUIREMENTS
+======================================================
+
+Design should feel like:
+
+• Shopify Admin
+• Notion
+• Stripe Dashboard
+• Linear
+• Vercel Dashboard
+
+Minimal.
+Modern.
+Clean.
+Premium.
+
+Use
+
+- soft shadows
+- rounded cards
+- glassmorphism where appropriate
+- smooth animations
+- Framer Motion
+- excellent spacing
+- beautiful typography
+- sticky headers
+- responsive layout
+
+No outdated admin templates.
+
+======================================================
+COLOR PALETTE
+======================================================
+
+Use Konjoondu Oorgai branding.
+
+Natural premium colors
+
+Deep Green
+Leaf Green
+Olive
+Cream
+Warm White
+Wood Brown accents
+
+Make it elegant and organic.
+
+======================================================
+LAYOUT
+======================================================
+
+Left Sidebar
+
+Dashboard
+
+Orders
+
+Products
+
+Inventory
+
+Customers
+
+Coupons
+
+Analytics
+
+Reviews
+
+Delivery Tracking
+
+Notifications
+
+Settings
+
+Logout
+
+Top Navbar
+
+Global Search
+
+Notifications
+
+Profile
+
+Quick Actions
+
+Dark Mode Toggle
+
+======================================================
+DASHBOARD
+======================================================
+
+Create a premium analytics dashboard.
+
+Cards
+
+Today's Orders
+
+Revenue
+
+Pending Orders
+
+Delivered
+
+Cancelled
+
+Average Order Value
+
+Returning Customers
+
+Monthly Revenue
+
+Top Selling Pickle
+
+Best Category
+
+Live Order Counter
+
+Animated charts
+
+Revenue
+
+Orders
+
+Products Sold
+
+Customer Growth
+
+Sales Heatmap
+
+Weekly Comparison
+
+Recent Orders Table
+
+Recent Customers
+
+Low Stock Alerts
+
+Top Products
+
+Latest Reviews
+
+======================================================
+ORDERS PAGE
+======================================================
+
+This should be much better than Kasthuribai.
+
+Every order should expand.
+
+Inside each order
+
+Customer Details
+
+Shipping Address
+
+Ordered Products
+
+Quantity
+
+Price
+
+Discount
+
+Payment Method
+
+Order Timeline
+
+Invoice
+
+Shipping Label
+
+Courier Details
+
+Tracking Number
+
+Packing Notes
+
+Admin Notes
+
+Expected Delivery
+
+Order History
+
+======================================================
+ORDER WORKFLOW
+======================================================
+
+Pending
+
+Confirmed
+
+Preparing
+
+Packed
+
+Ready for Pickup
+
+Picked Up
+
+Shipped
+
+In Transit
+
+Out for Delivery
+
+Delivered
+
+Cancelled
+
+Returned
+
+Refunded
+
+Every stage should have
+
+beautiful timeline
+
+smooth animations
+
+color coding
+
+status badges
+
+======================================================
+PRODUCT MANAGEMENT
+======================================================
+
+Beautiful table/grid
+
+Image
+
+Product
+
+Category
+
+Weight
+
+MRP
+
+Selling Price
+
+Inventory
+
+Status
+
+Actions
+
+Bulk Edit
+
+Bulk Delete
+
+Duplicate Product
+
+Preview
+
+Quick Edit
+
+======================================================
+INVENTORY
+======================================================
+
+Live Stock
+
+Low Stock
+
+Out of Stock
+
+Incoming Stock
+
+Stock History
+
+Purchase Records
+
+Supplier Details
+
+Expiry Date
+
+Batch Number
+
+Automatic Alerts
+
+======================================================
+CUSTOMERS
+======================================================
+
+Customer Cards
+
+Order Count
+
+Lifetime Value
+
+Recent Purchases
+
+Saved Addresses
+
+Wishlist
+
+Support Tickets
+
+Customer Notes
+
+======================================================
+ANALYTICS
+======================================================
+
+Premium Charts
+
+Revenue
+
+Orders
+
+Products
+
+Returning Customers
+
+Customer Growth
+
+Location-wise Sales
+
+Top Products
+
+Top Categories
+
+Refund Rate
+
+Conversion Rate
+
+======================================================
+REVIEWS
+======================================================
+
+Product Reviews
+
+Approve
+
+Reject
+
+Reply
+
+Images
+
+Rating Distribution
+
+======================================================
+DELIVERY MANAGEMENT
+======================================================
+
+Delivery Partner
+
+Pickup Requests
+
+Shipment Status
+
+Tracking Timeline
+
+Delivery Success Rate
+
+COD Status
+
+======================================================
+INVOICE
+======================================================
+
+Generate beautiful printable invoice
+
+Company Branding
+
+GST
+
+QR Code
+
+Shipping Label
+
+Packing Slip
+
+Barcode
+
+Download PDF
+
+Print
+
+======================================================
+NOTIFICATIONS
+======================================================
+
+New Orders
+
+Low Stock
+
+Failed Payments
+
+New Reviews
+
+Support Tickets
+
+Returns
+
+======================================================
+SETTINGS
+======================================================
+
+Business Details
+
+GST
+
+Delivery Charges
+
+Payment Methods
+
+Taxes
+
+Coupons
+
+Theme
+
+Users & Roles
+
+======================================================
+ANIMATIONS
+======================================================
+
+Framer Motion
+
+Animated counters
+
+Hover effects
+
+Loading skeletons
+
+Page transitions
+
+Expandable cards
+
+Smooth accordions
+
+Animated charts
+
+======================================================
+MOBILE
+======================================================
+
+Responsive
+
+Collapsible Sidebar
+
+Bottom Navigation where appropriate
+
+Touch Friendly
+
+======================================================
+IMPORTANT
+======================================================
+
+DO NOT recreate Kasthuribai Admin UI.
+
+Create a brand-new admin experience.
+
+Think like a senior SaaS designer.
+
+Improve every workflow.
+
+If you have a better idea than the specification, implement it.
+
+Prioritize usability, speed, clarity, and a premium user experience.
+
+Every page should feel production-ready, polished, and suitable for a premium food brand.
