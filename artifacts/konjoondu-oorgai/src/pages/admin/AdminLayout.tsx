@@ -3,13 +3,14 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   LayoutDashboard, ShoppingBag, Package, Warehouse, Users,
   Tag, BarChart3, Star, Truck, Bell, Settings, LogOut,
-  Search, Moon, Sun, ChevronRight, Menu, X, Zap,
+  Search, Moon, Sun, ChevronRight, Menu, X, Zap, PlusCircle,
 } from 'lucide-react';
 import type { AdminPage } from './types';
 
 const NAV_ITEMS: { id: AdminPage; label: string; icon: React.ElementType; badge?: number }[] = [
   { id: 'dashboard',     label: 'Dashboard',         icon: LayoutDashboard },
   { id: 'orders',        label: 'Orders',            icon: ShoppingBag,   badge: 3 },
+  { id: 'create-order',  label: 'Create Order',      icon: PlusCircle },
   { id: 'products',      label: 'Products',          icon: Package },
   { id: 'inventory',     label: 'Inventory',         icon: Warehouse },
   { id: 'customers',     label: 'Customers',         icon: Users },

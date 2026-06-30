@@ -1,0 +1,1 @@
+- [Replit /api/ path block](replit-api-path-block.md) — Replit's HTTPS proxy returns 502 for /api/* paths; use a custom prefix + Vite rewrite instead.

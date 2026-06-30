@@ -14,7 +14,7 @@ interface CheckoutForm {
 
 type Step = 'cart' | 'checkout' | 'confirmed';
 
-const API_BASE = import.meta.env.BASE_URL?.replace(/\/$/, '');
+const API_BASE = '/ko-api';
 
 declare global {
   interface Window {
@@ -74,7 +74,7 @@ function CartDrawerContent() {
       }
 
       // Step 2: create Razorpay order on backend
-      const createRes = await fetch(`${API_BASE}/api/payments/create-order`, {
+      const createRes = await fetch(`${API_BASE}/payments/create-order`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ amount: totalAmount }),
@@ -102,7 +102,7 @@ function CartDrawerContent() {
         theme: { color: '#B53A2E' },
         handler: async (response: Record<string, string>) => {
           // Step 4: verify payment signature
-          const verifyRes = await fetch(`${API_BASE}/api/payments/verify`, {
+          const verifyRes = await fetch(`${API_BASE}/payments/verify`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -118,7 +118,7 @@ function CartDrawerContent() {
           }
 
           // Step 5: create order record
-          const orderRes = await fetch(`${API_BASE}/api/orders`, {
+          const orderRes = await fetch(`${API_BASE}/orders`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({

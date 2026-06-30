@@ -56,6 +56,7 @@ export const STATUS_META: Record<OrderStatus, { label: string; color: string; bg
 export type AdminPage =
   | 'dashboard'
   | 'orders'
+  | 'create-order'
   | 'products'
   | 'inventory'
   | 'customers'

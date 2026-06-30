@@ -14,12 +14,10 @@ import Delivery from './admin/Delivery';
 import Notifications from './admin/Notifications';
 import Settings from './admin/Settings';
 import Coupons from './admin/Coupons';
+import CreateOrder from './admin/CreateOrder';
 import type { Order, OrderStatus, AdminPage } from './admin/types';
 
-const API_BASE = (() => {
-  const base = import.meta.env.BASE_URL || '/';
-  return base.replace(/\/$/, '');
-})();
+const API_BASE = '/ko-api';
 
 const DEMO_ORDERS = [
   {
@@ -62,7 +60,7 @@ function LoginScreen({ onLogin }: { onLogin: (token: string, orders: Order[]) =>
     setLoading(true);
     setError('');
     try {
-      const res = await fetch(`${API_BASE}/api/orders`, {
+      const res = await fetch(`${API_BASE}/orders`, {
         headers: { 'x-admin-token': input },
       });
       if (res.status === 403) { setError('Incorrect admin token.'); setLoading(false); return; }
@@ -74,7 +72,7 @@ function LoginScreen({ onLogin }: { onLogin: (token: string, orders: Order[]) =>
         setError(data.message || 'Login failed.');
       }
     } catch {
-      setError('Network error — make sure the API server is running on port 3000.');
+      setError('Network error — make sure the API server is running.');
     } finally {
       setLoading(false);
     }
@@ -179,8 +177,8 @@ function LoginScreen({ onLogin }: { onLogin: (token: string, orders: Order[]) =>
             <Leaf size={12} color="#2d6a4f" />
             <p style={{ fontSize: 11, fontWeight: 700, color: '#2d6a4f', textTransform: 'uppercase', letterSpacing: '0.06em' }}>API Connection</p>
           </div>
-          <p style={{ fontSize: 11, color: '#6b7c5a' }}>Backend: <strong>{API_BASE || 'http://localhost:3000'}</strong></p>
-          <p style={{ fontSize: 10, color: '#9ca3af', marginTop: 2 }}>Make sure the backend server is running on port 3000</p>
+          <p style={{ fontSize: 11, color: '#6b7c5a' }}>API: <strong>{API_BASE}</strong></p>
+          <p style={{ fontSize: 10, color: '#9ca3af', marginTop: 2 }}>Proxied to backend server automatically</p>
         </div>
       </motion.div>
       <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
@@ -201,7 +199,7 @@ export default function AdminPage() {
   const fetchOrders = useCallback(async (tok: string) => {
     setLoading(true);
     try {
-      const res = await fetch(`${API_BASE}/api/orders`, {
+      const res = await fetch(`${API_BASE}/orders`, {
         headers: { 'x-admin-token': tok },
       });
       const data = await res.json();
@@ -218,7 +216,7 @@ export default function AdminPage() {
 
   async function updateStatus(orderId: string, status: OrderStatus) {
     try {
-      const res = await fetch(`${API_BASE}/api/orders/${orderId}/status`, {
+      const res = await fetch(`${API_BASE}/orders/${orderId}/status`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json', 'x-admin-token': token },
         body: JSON.stringify({ status }),
@@ -232,14 +230,14 @@ export default function AdminPage() {
     setSeeding(true);
     for (let i = 0; i < DEMO_ORDERS.length; i++) {
       try {
-        const res = await fetch(`${API_BASE}/api/orders`, {
+        const res = await fetch(`${API_BASE}/orders`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(DEMO_ORDERS[i]),
         });
         const data = await res.json();
         if (data.success && DEMO_STATUSES[i] !== 'pending') {
-          await fetch(`${API_BASE}/api/orders/${data.orderId}/status`, {
+          await fetch(`${API_BASE}/orders/${data.orderId}/status`, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json', 'x-admin-token': token },
             body: JSON.stringify({ status: DEMO_STATUSES[i] }),
@@ -275,6 +273,7 @@ export default function AdminPage() {
     switch (page) {
       case 'dashboard':    return <Dashboard orders={orders} />;
       case 'orders':       return <Orders orders={orders} token={token} loading={loading} onRefresh={() => fetchOrders(token)} onUpdateStatus={updateStatus} onSeedDemo={seedDemo} seeding={seeding} />;
+      case 'create-order': return <CreateOrder token={token} onSuccess={() => { fetchOrders(token); setPage('orders'); }} />;
       case 'products':     return <Products />;
       case 'inventory':    return <Inventory />;
       case 'customers':    return <Customers />;

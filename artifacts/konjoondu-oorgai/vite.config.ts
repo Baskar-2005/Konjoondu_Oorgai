@@ -61,9 +61,10 @@ export default defineConfig({
       strict: true,
     },
     proxy: {
-      '/api': {
+      '/ko-api': {
         target: 'http://localhost:3000',
         changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/ko-api/, '/api'),
       },
     },
   },
