@@ -65,4 +65,5 @@ export type AdminPage =
   | 'reviews'
   | 'delivery'
   | 'notifications'
-  | 'settings';
+  | 'settings'
+  | 'scan-station';

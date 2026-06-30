@@ -15,6 +15,7 @@ import Notifications from './admin/Notifications';
 import Settings from './admin/Settings';
 import Coupons from './admin/Coupons';
 import CreateOrder from './admin/CreateOrder';
+import ScanStation from './admin/ScanStation';
 import type { Order, OrderStatus, AdminPage } from './admin/types';
 
 const API_BASE = '/ko-api';
@@ -27,27 +28,32 @@ const DEMO_ORDERS = [
   },
   {
     customer: { name: 'Meena Sundaram', phone: '9444112233', email: 'meena.s@gmail.com', address: '7/3, Raja Nagar, Chidambaram - 608001' },
-    items: [{ productId: 3, productName: 'Squid Pickle', size: '250g', price: 260, quantity: 1 }],
+    items: [{ productId: 3, productName: 'Nethili Pickle', size: '250g', price: 260, quantity: 1 }],
     totalAmount: 260, paymentId: 'pay_demo_Lp7wYn2bAj',
   },
   {
     customer: { name: 'Selvam Murugan', phone: '8012345678', email: '', address: '22, Fishermen Colony, Cuddalore Port - 607003' },
-    items: [{ productId: 4, productName: 'Mutton Pickle', size: '500g', price: 450, quantity: 1 }, { productId: 1, productName: 'Prawn Pickle', size: '100g', price: 120, quantity: 3 }],
-    totalAmount: 810, paymentId: 'pay_demo_Ht4sKm8vWe',
+    items: [{ productId: 4, productName: 'Mutton Pickle', size: '100g', price: 200, quantity: 2 }, { productId: 1, productName: 'Prawn Pickle', size: '100g', price: 160, quantity: 2 }],
+    totalAmount: 720, paymentId: 'pay_demo_Ht4sKm8vWe',
   },
   {
     customer: { name: 'Priya Anand', phone: '9500667788', email: 'priya.a@outlook.com', address: '5, Gandhi Road, Villupuram - 605602' },
-    items: [{ productId: 2, productName: 'Chicken Pickle', size: '250g', price: 210, quantity: 2 }],
-    totalAmount: 420, paymentId: undefined,
+    items: [{ productId: 2, productName: 'Chicken Pickle', size: '250g', price: 320, quantity: 1 }],
+    totalAmount: 320, paymentId: undefined,
   },
   {
     customer: { name: 'Ravi Kumar', phone: '7299001122', email: 'ravi.k@yahoo.com', address: '88, Anna Salai, Chennai - 600002' },
-    items: [{ productId: 3, productName: 'Squid Pickle', size: '500g', price: 490, quantity: 1 }, { productId: 4, productName: 'Mutton Pickle', size: '250g', price: 270, quantity: 2 }],
-    totalAmount: 1030, paymentId: 'pay_demo_Cq2xJn9pFr',
+    items: [{ productId: 8, productName: 'Soorai Pickle', size: '250g', price: 310, quantity: 2 }, { productId: 11, productName: 'Chennakunni Idly Podi', size: '200g', price: 240, quantity: 1 }],
+    totalAmount: 860, paymentId: 'pay_demo_Cq2xJn9pFr',
+  },
+  {
+    customer: { name: 'Lakshmi Devi', phone: '9988776655', email: 'lakshmi@gmail.com', address: '3, Subramanya Nagar, Cuddalore - 607002' },
+    items: [{ productId: 10, productName: 'Maldives Fish Sambal', size: '200g', price: 300, quantity: 2 }],
+    totalAmount: 600, paymentId: 'pay_demo_Zr8tBp1vNk',
   },
 ];
 
-const DEMO_STATUSES: OrderStatus[] = ['delivered', 'shipped', 'confirmed', 'pending', 'delivered'];
+const DEMO_STATUSES: OrderStatus[] = ['delivered', 'shipped', 'confirmed', 'pending', 'in_transit', 'preparing'];
 
 // ─── Login Screen ─────────────────────────────────────────────────────────────
 function LoginScreen({ onLogin }: { onLogin: (token: string, orders: Order[]) => void }) {
@@ -84,7 +90,6 @@ function LoginScreen({ onLogin }: { onLogin: (token: string, orders: Order[]) =>
       background: 'linear-gradient(135deg, #0f2318 0%, #1a3a2a 50%, #2d4a1e 100%)',
       fontFamily: 'Poppins, sans-serif', padding: 24, position: 'relative', overflow: 'hidden',
     }}>
-      {/* Ambient blobs */}
       <div style={{ position: 'absolute', top: '20%', left: '10%', width: 300, height: 300, borderRadius: '50%', background: 'rgba(82,183,136,0.06)', filter: 'blur(80px)', pointerEvents: 'none' }} />
       <div style={{ position: 'absolute', bottom: '15%', right: '8%', width: 400, height: 400, borderRadius: '50%', background: 'rgba(107,124,58,0.05)', filter: 'blur(100px)', pointerEvents: 'none' }} />
 
@@ -98,7 +103,6 @@ function LoginScreen({ onLogin }: { onLogin: (token: string, orders: Order[]) =>
           boxShadow: '0 40px 100px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.08)',
           padding: '40px 36px',
         }}>
-        {/* Brand */}
         <div style={{ textAlign: 'center', marginBottom: 32 }}>
           <motion.div
             initial={{ scale: 0.6, opacity: 0 }}
@@ -195,6 +199,9 @@ export default function AdminPage() {
   const [page, setPage] = useState<AdminPage>('dashboard');
   const [search, setSearch] = useState('');
   const [seeding, setSeeding] = useState(false);
+  const [dark, setDark] = useState(() => {
+    try { return localStorage.getItem('ko_admin_dark') === '1'; } catch { return false; }
+  });
 
   const fetchOrders = useCallback(async (tok: string) => {
     setLoading(true);
@@ -213,6 +220,13 @@ export default function AdminPage() {
   useEffect(() => {
     if (token) fetchOrders(token).then(() => setLoggedIn(true));
   }, []);
+
+  const toggleDark = () => {
+    setDark(d => {
+      try { localStorage.setItem('ko_admin_dark', d ? '0' : '1'); } catch { /* silent */ }
+      return !d;
+    });
+  };
 
   async function updateStatus(orderId: string, status: OrderStatus) {
     try {
@@ -271,29 +285,32 @@ export default function AdminPage() {
 
   function renderPage() {
     switch (page) {
-      case 'dashboard':    return <Dashboard orders={orders} />;
-      case 'orders':       return <Orders orders={orders} token={token} loading={loading} onRefresh={() => fetchOrders(token)} onUpdateStatus={updateStatus} onSeedDemo={seedDemo} seeding={seeding} />;
-      case 'create-order': return <CreateOrder token={token} onSuccess={() => { fetchOrders(token); setPage('orders'); }} />;
-      case 'products':     return <Products />;
-      case 'inventory':    return <Inventory />;
-      case 'customers':    return <Customers />;
-      case 'coupons':      return <Coupons />;
-      case 'analytics':    return <Analytics />;
-      case 'reviews':      return <Reviews />;
-      case 'delivery':     return <Delivery />;
+      case 'dashboard':     return <Dashboard orders={orders} />;
+      case 'orders':        return <Orders orders={orders} token={token} loading={loading} onRefresh={() => fetchOrders(token)} onUpdateStatus={updateStatus} onSeedDemo={seedDemo} seeding={seeding} />;
+      case 'create-order':  return <CreateOrder token={token} onSuccess={() => { fetchOrders(token); setPage('orders'); }} />;
+      case 'products':      return <Products />;
+      case 'inventory':     return <Inventory />;
+      case 'customers':     return <Customers orders={orders} />;
+      case 'coupons':       return <Coupons />;
+      case 'analytics':     return <Analytics />;
+      case 'reviews':       return <Reviews />;
+      case 'delivery':      return <Delivery orders={orders} onUpdateStatus={updateStatus} />;
       case 'notifications': return <Notifications />;
-      case 'settings':     return <Settings />;
-      default:             return <Dashboard orders={orders} />;
+      case 'settings':      return <Settings />;
+      case 'scan-station':  return <ScanStation orders={orders} token={token} onUpdateStatus={updateStatus} onBack={() => setPage('dashboard')} />;
+      default:              return <Dashboard orders={orders} />;
     }
   }
 
   return (
     <AdminLayout
       page={page}
-      onNavigate={setPage}
+      onNavigate={p => setPage(p as AdminPage)}
       onLogout={logout}
       search={search}
       onSearch={setSearch}
+      dark={dark}
+      onToggleDark={toggleDark}
     >
       {renderPage()}
     </AdminLayout>
