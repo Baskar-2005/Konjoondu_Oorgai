@@ -1,8 +1,9 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTheme } from '@/components/ThemeProvider';
-import { Sun, Moon, Menu, X, ShoppingCart } from 'lucide-react';
+import { Sun, Moon, Menu, X, ShoppingCart, UserCircle } from 'lucide-react';
 import { useLocation } from 'wouter';
+import { useCustomer } from '@/context/CustomerContext';
 import { useCart } from '@/context/CartContext';
 
 // ── Logo Mark ────────────────────────────────────────────────────
@@ -37,6 +38,7 @@ export default function Navigation() {
   const { theme, setTheme } = useTheme();
   const [location, navigate] = useLocation();
   const { totalItems, openCart } = useCart();
+  const { isLoggedIn } = useCustomer();
 
   const isProductsPage = location === '/products';
 
@@ -192,6 +194,19 @@ export default function Navigation() {
               </a>
             ))}
 
+            {/* Account icon */}
+            <button
+              onClick={() => navigate('/account')}
+              className="relative ml-1 p-2 rounded-full flex-shrink-0 transition-colors"
+              style={{ background: navScrolled ? 'rgba(181,58,46,0.08)' : 'rgba(255,255,255,0.14)', position: 'relative' }}
+              aria-label="My account"
+            >
+              <UserCircle size={16} style={{ color: navScrolled ? 'hsl(4,60%,44%)' : '#FFF9F3' }} />
+              {isLoggedIn && (
+                <span style={{ position: 'absolute', top: 4, right: 4, width: 7, height: 7, borderRadius: '50%', background: 'hsl(93,32%,42%)', border: '1.5px solid #fff' }} />
+              )}
+            </button>
+
             {/* Cart icon */}
             <button
               onClick={openCart}
@@ -304,6 +319,11 @@ export default function Navigation() {
           </a>
 
           <div className="flex items-center gap-1.5">
+            {/* Mobile account */}
+            <button onClick={() => navigate('/account')} className="relative p-2 rounded-full" style={{ background: 'rgba(139,94,60,0.1)' }} aria-label="Account">
+              <UserCircle size={14} style={{ color: 'hsl(4,60%,44%)' }} />
+              {isLoggedIn && <span style={{ position: 'absolute', top: 4, right: 4, width: 6, height: 6, borderRadius: '50%', background: 'hsl(93,32%,42%)', border: '1.5px solid #fff' }} />}
+            </button>
             {/* Mobile cart */}
             <button
               onClick={openCart}

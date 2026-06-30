@@ -6,8 +6,10 @@ import {
   orderItemsTable,
   trackingStepsTable,
   issuesTable,
+  customersTable,
 } from "@workspace/db";
 import { eq, desc, or, ilike } from "drizzle-orm";
+import { getCustomerFromToken } from "./auth";
 
 const router: IRouter = Router();
 
@@ -326,22 +328,27 @@ router.patch("/orders/:id/shipment", async (req, res) => {
   res.json({ success: true, order });
 });
 
-// POST /api/orders/:id/issues — raise a customer issue
+// POST /api/orders/:id/issues — raise a customer issue (requires customer auth + ownership)
 router.post("/orders/:id/issues", async (req, res) => {
-  const { type, description } = req.body as { type: string; description: string };
+  const customerId = await getCustomerFromToken(req, res);
+  if (!customerId) return;
 
+  const { type, description } = req.body as { type: string; description: string };
   if (!type || !description) {
     res.status(400).json({ success: false, message: "type and description are required." });
     return;
   }
 
-  const rows = await db
-    .select()
-    .from(ordersTable)
-    .where(eq(ordersTable.id, req.params.id));
-
-  if (!rows.length) {
+  const orderRows = await db.select().from(ordersTable).where(eq(ordersTable.id, req.params.id));
+  if (!orderRows.length) {
     res.status(404).json({ success: false, message: "Order not found." });
+    return;
+  }
+
+  // Verify the order belongs to this customer (match by phone)
+  const custRows = await db.select().from(customersTable).where(eq(customersTable.id, customerId));
+  if (!custRows.length || orderRows[0].customerPhone !== custRows[0].phone) {
+    res.status(403).json({ success: false, message: "You do not own this order." });
     return;
   }
 
