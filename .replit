@@ -46,7 +46,7 @@ outputType = "webview"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "pnpm --filter @workspace/konjoondu-oorgai run dev"
-waitForPort = 25643
+waitForPort = 5000
 
 [agent]
 stack = "BEST_EFFORT_FALLBACK"
