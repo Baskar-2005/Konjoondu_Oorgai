@@ -15,6 +15,15 @@ function getRazorpay() {
   });
 }
 
+// GET /api/razorpay/key — safely expose public key to frontend
+router.get("/razorpay/key", (_req, res) => {
+  if (!process.env.RAZORPAY_KEY_ID) {
+    res.status(503).json({ success: false, message: "Payment gateway not configured." });
+    return;
+  }
+  res.json({ success: true, key: process.env.RAZORPAY_KEY_ID });
+});
+
 // POST /api/payments/create-order — create a Razorpay order
 router.post("/payments/create-order", async (req, res) => {
   const razorpay = getRazorpay();
@@ -83,6 +92,23 @@ router.post("/payments/verify", (req, res) => {
   }
 
   res.json({ success: true, paymentId: razorpay_payment_id });
+});
+
+// GET /api/razorpay/order/:orderId — fetch Razorpay order details
+router.get("/razorpay/order/:orderId", async (req, res) => {
+  const razorpay = getRazorpay();
+  if (!razorpay) {
+    res.status(503).json({ success: false, message: "Payment gateway not configured." });
+    return;
+  }
+
+  try {
+    const order = await razorpay.orders.fetch(req.params.orderId);
+    res.json({ success: true, order });
+  } catch (err) {
+    console.error("Razorpay fetch-order error:", err);
+    res.status(500).json({ success: false, message: "Failed to fetch order from Razorpay." });
+  }
 });
 
 export default router;

@@ -1,0 +1,580 @@
+================================================================================
+  COMPLETE E-COMMERCE BACKEND GUIDE
+  Based on: Kasthuribai Ready Mades
+  Stack: React + Vite (Frontend) | Express 5 + TypeScript (Backend) | PostgreSQL
+  Reference for: Masala Company project (and any similar e-commerce)
+================================================================================
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  SECTION 1 — PROJECT STRUCTURE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  artifacts/
+  ├── api-server/           ← Express backend
+  │   └── src/
+  │       ├── index.ts      ← Server startup (reads PORT, starts Express)
+  │       ├── app.ts        ← Middleware: CORS, JSON, logging (Pino)
+  │       ├── routes/
+  │       │   ├── index.ts       ← Mounts all sub-routers under /api
+  │       │   ├── razorpay.ts    ← Payment routes
+  │       │   ├── email.ts       ← Email confirmation route
+  │       │   ├── github.ts      ← Admin GitHub push route
+  │       │   └── health.ts      ← GET /api/health
+  │       └── lib/
+  │           └── email.ts       ← Nodemailer email logic
+  │
+  └── kasthuribai/          ← React frontend
+      └── src/
+          ├── pages/
+          │   ├── Home.tsx
+          │   ├── Collections.tsx
+          │   ├── MyOrders.tsx
+          │   ├── OrderTracking.tsx
+          │   ├── AdminDashboard.tsx
+          │   └── ScanOrder.tsx
+          ├── components/
+          │   └── CartDrawer.tsx  ← Checkout + payment UI
+          ├── store/
+          │   ├── use-cart.ts     ← Zustand cart store (localStorage)
+          │   └── use-orders.ts   ← Zustand orders store (localStorage)
+          └── lib/
+              └── razorpay.ts     ← Razorpay SDK loader + payment init
+
+  lib/
+  ├── db/                   ← Drizzle ORM + PostgreSQL
+  ├── api-spec/             ← OpenAPI spec (openapi.yaml)
+  ├── api-zod/              ← Zod schemas (auto-generated from spec)
+  └── api-client-react/     ← React Query hooks (auto-generated)
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  SECTION 2 — BACKEND API ROUTES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  All routes are prefixed with /api
+
+  ┌─────────────────────────────────────────────────────────────────┐
+  │ RAZORPAY ROUTES                                                 │
+  ├─────────────────────────────────────────────────────────────────┤
+  │ POST /api/razorpay/create-order                                 │
+  │   - Body: { amount: number (in paise), currency: "INR" }        │
+  │   - Creates a Razorpay order using RAZORPAY_KEY_ID +            │
+  │     RAZORPAY_KEY_SECRET                                         │
+  │   - Returns: { id, amount, currency }                           │
+  │                                                                 │
+  │ POST /api/razorpay/verify-payment                               │
+  │   - Body: { razorpay_order_id, razorpay_payment_id,             │
+  │             razorpay_signature }                                 │
+  │   - Verifies HMAC SHA256: hash of "order_id|payment_id"         │
+  │     using secret key                                            │
+  │   - Returns: { success: true } or 400 error                     │
+  │                                                                 │
+  │ GET  /api/razorpay/order/:orderId                               │
+  │   - Fetches order details from Razorpay's API                   │
+  │   - Returns full Razorpay order object                          │
+  │                                                                 │
+  │ GET  /api/razorpay/key                                          │
+  │   - Returns: { key: RAZORPAY_KEY_ID }                           │
+  │   - Frontend uses this to init the SDK safely                   │
+  └─────────────────────────────────────────────────────────────────┘
+
+  ┌─────────────────────────────────────────────────────────────────┐
+  │ EMAIL ROUTES                                                    │
+  ├─────────────────────────────────────────────────────────────────┤
+  │ POST /api/email/order-confirmation                              │
+  │   - Body: { orderId, customerName, customerEmail, items[],      │
+  │             totalAmount, shippingAddress }                       │
+  │   - Sends a formatted HTML order confirmation email             │
+  │   - Uses Nodemailer with Gmail app password                     │
+  │   - Env vars: EMAIL_USER, EMAIL_APP_PASSWORD                    │
+  └─────────────────────────────────────────────────────────────────┘
+
+  ┌─────────────────────────────────────────────────────────────────┐
+  │ OTHER ROUTES                                                    │
+  ├─────────────────────────────────────────────────────────────────┤
+  │ GET  /api/health                                                │
+  │   - Returns: { status: "ok", timestamp }                        │
+  │   - Used by deployment health checks                            │
+  │                                                                 │
+  │ POST /api/github/push                                           │
+  │   - Admin route to trigger GitHub operations                    │
+  └─────────────────────────────────────────────────────────────────┘
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  SECTION 3 — DATABASE SCHEMA (Drizzle ORM + PostgreSQL)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  NOTE: Current build uses Zustand + localStorage for orders on the
+  frontend. For production/masala project, migrate to this DB schema:
+
+  TABLE: orders
+  ─────────────────────────────────────────────────────────────────
+  id                  TEXT PRIMARY KEY   (e.g. ORD-2025-001)
+  order_number        TEXT UNIQUE
+  razorpay_order_id   TEXT
+  razorpay_payment_id TEXT
+  customer_name       TEXT
+  customer_email      TEXT
+  customer_phone      TEXT
+  shipping_address    TEXT
+  total_amount        INTEGER            (in paise)
+  status              TEXT               (see statuses below)
+  courier_name        TEXT
+  tracking_id         TEXT
+  estimated_delivery  TEXT
+  created_at          TIMESTAMP
+  updated_at          TIMESTAMP
+
+  TABLE: order_items
+  ─────────────────────────────────────────────────────────────────
+  id          SERIAL PRIMARY KEY
+  order_id    TEXT → orders.id
+  product_id  TEXT
+  name        TEXT
+  price       INTEGER
+  quantity    INTEGER
+  image_url   TEXT
+
+  TABLE: tracking_steps
+  ─────────────────────────────────────────────────────────────────
+  id          SERIAL PRIMARY KEY
+  order_id    TEXT → orders.id
+  status      TEXT
+  label       TEXT
+  description TEXT
+  timestamp   TIMESTAMP
+  completed   BOOLEAN
+
+  TABLE: issues
+  ─────────────────────────────────────────────────────────────────
+  id            SERIAL PRIMARY KEY
+  order_id      TEXT → orders.id
+  type          TEXT    (e.g. "Damaged Item", "Wrong Item")
+  description   TEXT
+  status        TEXT    (open / resolved)
+  admin_reply   TEXT
+  created_at    TIMESTAMP
+
+  ORDER STATUS VALUES (in progression order):
+  pending → confirmed → packed → shipped → out_for_delivery
+  → delivered → cancelled → returned → refunded
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  SECTION 4 — HOW CUSTOMERS ORDER (Step-by-Step Flow)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  STEP 1: BROWSE & ADD TO CART
+  ─────────────────────────────
+  - Customer browses products on /collections or /video-shopping
+  - Clicks "Add to Cart" → triggers useCart.addItem()
+  - Cart state saved to localStorage via Zustand persist middleware
+  - Cart icon in Navbar shows item count badge
+
+  STEP 2: OPEN CART DRAWER
+  ─────────────────────────
+  - Customer clicks cart icon → CartDrawer slides in from right
+  - Shows all items, quantities, prices
+  - Shows shipping progress bar (e.g., "Add ₹200 more for free shipping")
+  - Customer can increase/decrease quantity or remove items
+
+  STEP 3: PROCEED TO CHECKOUT
+  ─────────────────────────────
+  - Customer clicks "Proceed to Checkout"
+  - CartDrawer switches to checkout step (step === "checkout")
+  - Payment method options shown: UPI | Card | WhatsApp | Razorpay
+
+  STEP 4: FILL CUSTOMER DETAILS (for Razorpay)
+  ─────────────────────────────────────────────
+  - Customer fills form:
+      • Full Name
+      • Email
+      • Phone Number
+      • Shipping Address
+  - Frontend validates all fields before allowing payment
+
+  STEP 5: RAZORPAY PAYMENT
+  ─────────────────────────
+  (See Section 5 for full Razorpay flow)
+
+  STEP 6: POST-PAYMENT
+  ─────────────────────
+  - Order saved to useOrders store (or DB in production)
+  - Cart is cleared
+  - Email confirmation sent (non-blocking, fire-and-forget)
+  - Customer redirected to /order-tracking/:orderId
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  SECTION 5 — RAZORPAY PAYMENT INTEGRATION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  REQUIRED ENV VARS:
+    RAZORPAY_KEY_ID      → public key (used by frontend SDK)
+    RAZORPAY_KEY_SECRET  → secret key (used ONLY on backend)
+
+  PAYMENT FLOW:
+  ─────────────────────────────────────────────────────────────────
+
+  [Frontend]                          [Backend]
+      │                                   │
+      │── POST /api/razorpay/create-order ──▶
+      │   { amount: totalInPaise }        │
+      │                                   │  razorpay.orders.create({
+      │                                   │    amount, currency: "INR"
+      │                                   │  })
+      │◀── { id, amount, currency } ──────│
+      │                                   │
+      │  Load Razorpay checkout.js SDK    │
+      │  Open payment modal with:         │
+      │    key: RAZORPAY_KEY_ID           │
+      │    order_id: id from above        │
+      │    name, email, contact           │
+      │    prefill customer details       │
+      │                                   │
+      │  [Customer pays on Razorpay UI]   │
+      │                                   │
+      │  handler(response) called with:   │
+      │    razorpay_payment_id            │
+      │    razorpay_order_id              │
+      │    razorpay_signature             │
+      │                                   │
+      │── POST /api/razorpay/verify ──────▶
+      │   { payment_id, order_id,         │
+      │     signature }                   │  HMAC SHA256 of:
+      │                                   │  "order_id|payment_id"
+      │                                   │  using KEY_SECRET
+      │                                   │  Compare with signature
+      │◀── { success: true } ─────────────│
+      │                                   │
+      │  Save order to store/DB           │
+      │  Clear cart                       │
+      │  Send email (async)               │
+      │  Redirect to /order-tracking      │
+
+  BACKEND VERIFICATION CODE PATTERN:
+  ─────────────────────────────────────────────────────────────────
+  import crypto from "crypto";
+
+  const body = order_id + "|" + payment_id;
+  const expectedSignature = crypto
+    .createHmac("sha256", RAZORPAY_KEY_SECRET)
+    .update(body)
+    .digest("hex");
+
+  if (expectedSignature !== razorpay_signature) {
+    return res.status(400).json({ error: "Invalid signature" });
+  }
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  SECTION 6 — ORDER TRACKING
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  PAGE: /order-tracking/:orderId
+
+  HOW IT WORKS:
+  - Customer is redirected here after payment
+  - orderId is read from the URL
+  - Order data fetched from useOrders store (or GET /api/orders/:id in DB)
+  - Page shows:
+
+    ① ORDER SUMMARY
+       - Order ID, date, items list, total amount
+       - Customer name, shipping address
+
+    ② VISUAL PROGRESS BAR
+       - Based on current status
+       - Percentage calculated from status position in the pipeline
+       - Statuses: pending(0%) → confirmed(20%) → packed(40%)
+                   → shipped(60%) → out_for_delivery(80%)
+                   → delivered(100%)
+
+    ③ TRACKING TIMELINE
+       - List of trackingSteps (each has label, description, timestamp)
+       - Completed steps shown in green, pending in grey
+       - Steps auto-generated by buildTrackingSteps() when admin
+         updates status
+
+  TRACKING STEP OBJECT:
+  ─────────────────────────────────────────────────────────────────
+  {
+    status: "shipped",
+    label: "Order Shipped",
+    description: "Your order has been shipped via BlueDart",
+    timestamp: "2025-01-15T10:30:00Z",
+    completed: true
+  }
+
+  SCAN TO TRACK (QR Code):
+  - Each order has a QR code that encodes:
+    https://yoursite.com/order-tracking/{orderId}
+  - Printed on invoice/receipt
+  - Customer scans → lands directly on tracking page
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  SECTION 7 — MY ORDERS PAGE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  PAGE: /my-orders
+
+  FEATURES:
+  ─────────────────────────────────────────────────────────────────
+  ① ORDER LIST
+     - All orders for the customer sorted by date (newest first)
+     - Status badge per order (color-coded)
+     - Order ID, date, total, item thumbnails
+
+  ② EXPAND ORDER → DELIVERY TIMELINE
+     - Click any order to expand it
+     - Shows full tracking step timeline
+     - Shows courier name + tracking ID (if shipped)
+     - Estimated delivery date
+
+  ③ RAISE AN ISSUE
+     - Button: "Report a Problem"
+     - Customer selects issue type:
+         • Damaged Item
+         • Wrong Item Delivered
+         • Item Not Received
+         • Other
+     - Writes description and submits
+     - Issue saved to useIssues store (or DB)
+     - Admin sees it in dashboard
+
+  ④ VIEW INVOICE
+     - Button: "View Invoice"
+     - Opens InvoiceModal with full order breakdown
+     - Option to download as PDF
+
+  ⑤ REQUEST RETURN
+     - Available only for "delivered" status orders
+     - Customer initiates return flow
+     - Status moves to "returned"
+
+  DATA SOURCE:
+  - useOrders Zustand store reads from localStorage
+  - In production: GET /api/orders?customer=email
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  SECTION 8 — ADMIN DASHBOARD
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  PAGE: /admin
+
+  ACCESS:
+  - Password-protected: kasthuribai@admin
+  - Password checked client-side (for production, use JWT or session)
+
+  DASHBOARD PANELS:
+  ─────────────────────────────────────────────────────────────────
+
+  ① ANALYTICS
+     - Revenue chart (Recharts bar/line chart)
+     - Order volume over time
+     - Status breakdown (how many pending, shipped, delivered etc.)
+     - Total revenue, total orders, average order value
+
+  ② ORDER MANAGEMENT
+     - Full order list with search (by order ID, customer name, email)
+     - Filter by status (pending / shipped / delivered / etc.)
+     - Each order row shows: ID, customer, amount, status, date
+
+  ③ UPDATE ORDER STATUS
+     - Admin clicks on an order → change status from dropdown
+     - Status options: pending → confirmed → packed → shipped
+                       → out_for_delivery → delivered
+     - Each status change appends a new tracking step with timestamp
+     - Customer's tracking page updates in real-time (if using DB)
+
+  ④ EDIT SHIPMENT DETAILS (EditDetailsModal)
+     - Admin enters:
+         • Courier Name (e.g., BlueDart, DTDC, Delhivery)
+         • Tracking ID (e.g., BD123456789IN)
+         • Estimated Delivery Date
+     - Saved to order record
+     - Shown on customer's tracking page and My Orders
+
+  ⑤ ISSUE TRACKER
+     - Lists all customer-raised issues
+     - Admin can view details and type a reply
+     - Reply saved and shown to customer on My Orders page
+     - Mark issue as resolved
+
+  ⑥ QR CODE GENERATOR
+     - For each order, generates a QR code using qrcode.react library
+     - QR encodes: /order-tracking/{orderId}
+     - Can be printed on invoice or shipping label
+     - Customer scans QR → lands on live tracking page
+
+  ⑦ SCAN ORDER (ScanOrder page: /scan/:orderId)
+     - Admin/delivery can scan a QR code
+     - Auto-loads the order details for quick status update
+     - Useful for warehouse/dispatch teams
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  SECTION 9 — EMAIL CONFIRMATION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  LIBRARY: Nodemailer (via @workspace/api-server)
+
+  ENV VARS NEEDED:
+    EMAIL_USER          → Gmail address (e.g. yourshop@gmail.com)
+    EMAIL_APP_PASSWORD  → Gmail App Password (not your login password)
+                          Generate at: myaccount.google.com/apppasswords
+
+  FLOW:
+  - Triggered by frontend after payment verification succeeds
+  - Frontend calls POST /api/email/order-confirmation
+  - Backend sends HTML email with:
+      • Order ID and date
+      • Items list with names, quantities, prices
+      • Total amount
+      • Shipping address
+      • Tracking link: https://yoursite.com/order-tracking/{orderId}
+
+  GMAIL APP PASSWORD SETUP:
+  1. Go to Google Account → Security
+  2. Enable 2-Step Verification
+  3. Go to App Passwords
+  4. Create password for "Mail" → copy the 16-char code
+  5. Set as EMAIL_APP_PASSWORD in Replit Secrets
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  SECTION 10 — QR CODE SYSTEM
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  LIBRARY: qrcode.react (React component)
+
+  USAGE IN ADMIN DASHBOARD:
+  ─────────────────────────────────────────────────────────────────
+  import QRCode from "qrcode.react";
+
+  <QRCode
+    value={`https://yoursite.com/order-tracking/${order.id}`}
+    size={128}
+    level="H"
+    includeMargin
+  />
+
+  QR CODE USE CASES:
+  1. PRINTED ON INVOICE
+     - Each invoice has a QR code
+     - Customer scans → tracking page
+     - No need to type order ID
+
+  2. SHIPPING LABEL
+     - Stick QR code on package
+     - Delivery team scans → see order details quickly
+
+  3. SCAN ORDER PAGE (/scan/:orderId)
+     - Admin opens camera, scans QR
+     - System reads orderId from URL
+     - Shows order details + quick status update buttons
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  SECTION 11 — ENVIRONMENT VARIABLES NEEDED
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Set all of these as Replit Secrets (or .env for local dev):
+
+  DATABASE_URL          → PostgreSQL connection string (auto by Replit)
+  RAZORPAY_KEY_ID       → From Razorpay Dashboard → API Keys
+  RAZORPAY_KEY_SECRET   → From Razorpay Dashboard → API Keys
+  EMAIL_USER            → Gmail address for sending emails
+  EMAIL_APP_PASSWORD    → Gmail App Password (16-char code)
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  SECTION 12 — CHECKLIST TO REUSE THIS FOR MASALA COMPANY
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  □ 1. Fork/clone this monorepo structure
+  □ 2. Change product data (names, images, prices, categories)
+  □ 3. Update store name everywhere (search "Kasthuribai")
+  □ 4. Set Razorpay keys in Replit Secrets
+  □ 5. Set EMAIL_USER + EMAIL_APP_PASSWORD in Replit Secrets
+  □ 6. Set DATABASE_URL (add PostgreSQL from Replit integrations)
+  □ 7. Run: pnpm --filter @workspace/db run push  (creates tables)
+  □ 8. Replace localStorage orders with real DB API calls:
+         GET  /api/orders          → list orders
+         POST /api/orders          → create order
+         PUT  /api/orders/:id      → update status
+         GET  /api/orders/:id      → single order tracking
+  □ 9. Update admin password in AdminDashboard.tsx
+  □ 10. Replace hero video with masala company branding video
+  □ 11. Update logo, colors, fonts in index.css / tailwind config
+  □ 12. Deploy: Netlify (frontend) + Render (backend)
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  SECTION 13 — KEY LIBRARIES USED
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  FRONTEND:
+  ─────────────────────────────────────────────────────────────────
+  react + vite              → UI framework + build tool
+  wouter                    → Lightweight client-side router
+  zustand                   → Global state (cart, orders, issues)
+  @tanstack/react-query     → Server state + data fetching
+  tailwindcss               → Utility CSS
+  recharts                  → Analytics charts in admin
+  qrcode.react              → QR code generation
+  framer-motion             → Animations
+  lucide-react              → Icons
+
+  BACKEND:
+  ─────────────────────────────────────────────────────────────────
+  express 5                 → HTTP server
+  razorpay (npm)            → Razorpay Node.js SDK
+  nodemailer                → Email sending
+  drizzle-orm               → ORM for PostgreSQL
+  pg                        → PostgreSQL client
+  zod                       → Request/response validation
+  pino                      → Structured logging
+  cors                      → CORS middleware
+
+  BUILD / INFRA:
+  ─────────────────────────────────────────────────────────────────
+  pnpm workspaces           → Monorepo package management
+  esbuild                   → Backend bundler
+  typescript                → Type safety across all packages
+  orval                     → Auto-generates API client from OpenAPI spec
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  SECTION 14 — DEPLOYMENT
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  FRONTEND → Netlify
+  ─────────────────────────────────────────────────────────────────
+  Build command:  pnpm --filter @workspace/kasthuribai run build
+  Publish dir:    artifacts/kasthuribai/dist
+  Env vars:       VITE_API_URL=https://your-backend.onrender.com
+
+  BACKEND → Render
+  ─────────────────────────────────────────────────────────────────
+  Build command:  pnpm --filter @workspace/api-server run build
+  Start command:  node artifacts/api-server/dist/index.mjs
+  Env vars:       DATABASE_URL, RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET,
+                  EMAIL_USER, EMAIL_APP_PASSWORD, PORT=8080
+
+  DATABASE → Neon / Supabase / Render Postgres
+  ─────────────────────────────────────────────────────────────────
+  - Any PostgreSQL-compatible service works
+  - Copy DATABASE_URL from provider → set as env var on Render
+  - Run migrations: pnpm --filter @workspace/db run push
+
+
+================================================================================
+  END OF GUIDE
+  Written by: Replit Agent | Project: Kasthuribai Ready Mades
+  Reuse freely for: Masala Company e-commerce and beyond.
+================================================================================
