@@ -338,18 +338,20 @@ export const ordersCol = {
     const snap = await fdb
       .collection("orders")
       .where("customerPhone", "==", phone)
-      .orderBy("createdAt", "desc")
       .get();
-    return snap.docs.map((d) => toOrder(d.id, d.data() as Record<string, unknown>));
+    return snap.docs
+      .map((d) => toOrder(d.id, d.data() as Record<string, unknown>))
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   },
 
   async findByEmail(email: string): Promise<Order[]> {
     const snap = await fdb
       .collection("orders")
       .where("customerEmailLower", "==", email.toLowerCase())
-      .orderBy("createdAt", "desc")
       .get();
-    return snap.docs.map((d) => toOrder(d.id, d.data() as Record<string, unknown>));
+    return snap.docs
+      .map((d) => toOrder(d.id, d.data() as Record<string, unknown>))
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   },
 
   async findAll(): Promise<Order[]> {
@@ -620,7 +622,6 @@ export const wishlistCol = {
       .collection("customers")
       .doc(customerId)
       .collection("wishlist")
-      .orderBy("addedAt", "desc")
       .get();
     return snap.docs.map((d) => {
       const data = d.data() as Record<string, unknown>;
