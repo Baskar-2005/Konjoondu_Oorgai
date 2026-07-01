@@ -252,9 +252,6 @@ export default function AuthPage({ onSuccess }: { onSuccess?: () => void }) {
 
   return (
     <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: BG, padding: 20, position: 'relative', overflow: 'hidden' }}>
-      {/* Invisible reCAPTCHA container — Firebase renders here */}
-      <div id="recaptcha-container" />
-
       {/* Ambient blobs */}
       <div style={{ position: 'absolute', top: '15%', left: '8%', width: 320, height: 320, borderRadius: '50%', background: 'rgba(181,58,46,0.08)', filter: 'blur(80px)', pointerEvents: 'none' }} />
       <div style={{ position: 'absolute', bottom: '10%', right: '5%', width: 400, height: 400, borderRadius: '50%', background: 'rgba(139,94,60,0.06)', filter: 'blur(100px)', pointerEvents: 'none' }} />
