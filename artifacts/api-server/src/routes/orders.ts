@@ -1,6 +1,6 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import { randomUUID } from "crypto";
-import { ordersCol, issuesCol, customersCol } from "../lib/firestoreDb";
+import { ordersCol, issuesCol, customersCol, notificationsCol } from "../lib/firestoreDb";
 import { getCustomerFromToken } from "./auth";
 
 const router: IRouter = Router();
@@ -232,6 +232,18 @@ router.patch("/orders/:id/status", async (req, res) => {
   if (!order) { res.status(404).json({ success: false, message: "Order not found." }); return; }
   await ordersCol.update(req.params.id, { status });
   await addTrackingStep(req.params.id, status);
+  // Notify the customer about the status change
+  const info = STATUS_INFO[status] ?? { label: status, description: `Your order status has been updated to ${status}.` };
+  const customer = await customersCol.findByPhone(order.customerPhone);
+  if (customer) {
+    await notificationsCol.create({
+      customerId: customer.id,
+      type: "order_update",
+      title: info.label,
+      body: `Order ${order.id}: ${info.description}`,
+      metadata: { orderId: order.id, status },
+    }).catch(() => {}); // non-blocking, don't fail the request
+  }
   const updated = await ordersCol.findById(req.params.id);
   res.json({ success: true, order: await formatOrder(updated) });
 });

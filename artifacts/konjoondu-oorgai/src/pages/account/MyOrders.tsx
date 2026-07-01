@@ -1,23 +1,30 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useRef, useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Package, ChevronDown, ChevronUp, Truck, CheckCircle2, Clock, X, MapPin, CreditCard, RefreshCw, AlertCircle, Download } from 'lucide-react';
 import { useCustomer } from '@/context/CustomerContext';
+import { useToast } from '@/hooks/use-toast';
+import { usePolling } from '@/hooks/usePolling';
 
 const PRIMARY = 'hsl(4,60%,44%)';
 
 const TRACKING_STAGES = [
-  { status: 'pending', label: 'Order Placed', icon: '📋', color: '#f59e0b' },
-  { status: 'confirmed', label: 'Confirmed', icon: '✅', color: '#3b82f6' },
-  { status: 'packed', label: 'Packed', icon: '📦', color: '#8b5cf6' },
-  { status: 'shipped', label: 'Shipped', icon: '🚚', color: '#06b6d4' },
-  { status: 'out_for_delivery', label: 'Out for Delivery', icon: '🛵', color: '#f97316' },
-  { status: 'delivered', label: 'Delivered', icon: '🎉', color: '#22c55e' },
+  { status: 'pending',          label: 'Order Placed',      icon: '📋', color: '#f59e0b' },
+  { status: 'confirmed',        label: 'Confirmed',         icon: '✅', color: '#3b82f6' },
+  { status: 'packed',           label: 'Packed',            icon: '📦', color: '#8b5cf6' },
+  { status: 'shipped',          label: 'Shipped',           icon: '🚚', color: '#06b6d4' },
+  { status: 'out_for_delivery', label: 'Out for Delivery',  icon: '🛵', color: '#f97316' },
+  { status: 'delivered',        label: 'Delivered',         icon: '🎉', color: '#22c55e' },
 ];
 
 const STATUS_COLORS: Record<string, string> = {
   pending: '#f59e0b', confirmed: '#3b82f6', packed: '#8b5cf6',
   shipped: '#06b6d4', out_for_delivery: '#f97316', delivered: '#22c55e',
   cancelled: '#ef4444', returned: '#6b7280', refunded: '#10b981',
+};
+
+const STATUS_EMOJI: Record<string, string> = {
+  pending: '📋', confirmed: '✅', packed: '📦', shipped: '🚚',
+  out_for_delivery: '🛵', delivered: '🎉', cancelled: '❌', returned: '↩️', refunded: '💚',
 };
 
 interface TrackingStep { id: number; status: string; label: string; description: string; timestamp: string; completed: boolean; }
@@ -52,7 +59,6 @@ function TrackingTimeline({ order }: { order: Order }) {
     <div style={{ marginTop: 20 }}>
       <h4 style={{ fontSize: 12, fontWeight: 800, color: '#8b6344', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 16 }}>Live Tracking</h4>
       <div style={{ position: 'relative' }}>
-        {/* Progress line */}
         <div style={{ position: 'absolute', left: 17, top: 0, bottom: 0, width: 2, background: 'rgba(139,94,60,0.1)', borderRadius: 2 }} />
         <motion.div
           initial={{ scaleY: 0, originY: 0 }}
@@ -68,16 +74,9 @@ function TrackingTimeline({ order }: { order: Order }) {
             return (
               <div key={stage.status} style={{ display: 'flex', alignItems: 'flex-start', gap: 16, position: 'relative' }}>
                 <motion.div
-                  initial={isCurrent ? { scale: 0 } : {}}
                   animate={isCurrent ? { scale: [1, 1.15, 1] } : {}}
                   transition={isCurrent ? { duration: 1.5, repeat: Infinity, ease: 'easeInOut' } : {}}
-                  style={{
-                    width: 36, height: 36, borderRadius: '50%', flexShrink: 0, zIndex: 1,
-                    background: isCompleted ? stage.color : 'rgba(139,94,60,0.1)',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16,
-                    boxShadow: isCurrent ? `0 0 0 6px ${stage.color}20` : 'none',
-                    transition: 'all 0.4s',
-                  }}>
+                  style={{ width: 36, height: 36, borderRadius: '50%', flexShrink: 0, zIndex: 1, background: isCompleted ? stage.color : 'rgba(139,94,60,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, boxShadow: isCurrent ? `0 0 0 6px ${stage.color}20` : 'none', transition: 'all 0.4s' }}>
                   {isCompleted ? (isCurrent ? stage.icon : <CheckCircle2 size={16} color="#fff" />) : <span style={{ fontSize: 12 }}>○</span>}
                 </motion.div>
                 <div style={{ paddingTop: 6 }}>
@@ -96,13 +95,16 @@ function TrackingTimeline({ order }: { order: Order }) {
   );
 }
 
-function OrderCard({ order, onRaiseIssue }: { order: Order; onRaiseIssue: (orderId: string) => void }) {
+function OrderCard({ order, onRaiseIssue, isNew }: { order: Order; onRaiseIssue: (orderId: string) => void; isNew?: boolean }) {
   const [expanded, setExpanded] = useState(false);
   const color = STATUS_COLORS[order.status] || '#8b6344';
 
   return (
-    <motion.div layout style={{ background: '#fff', borderRadius: 20, border: '1px solid rgba(139,94,60,0.1)', overflow: 'hidden', boxShadow: '0 2px 12px rgba(139,94,60,0.06)' }}>
-      {/* Header */}
+    <motion.div layout
+      initial={isNew ? { opacity: 0, y: -16, scale: 0.98 } : false}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      transition={{ duration: 0.3 }}
+      style={{ background: '#fff', borderRadius: 20, border: `1px solid ${isNew ? `${color}40` : 'rgba(139,94,60,0.1)'}`, overflow: 'hidden', boxShadow: isNew ? `0 4px 20px ${color}20` : '0 2px 12px rgba(139,94,60,0.06)' }}>
       <button onClick={() => setExpanded(e => !e)}
         style={{ width: '100%', padding: '18px 20px', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', fontFamily: 'Poppins,sans-serif' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
@@ -120,23 +122,26 @@ function OrderCard({ order, onRaiseIssue }: { order: Order; onRaiseIssue: (order
           <div style={{ textAlign: 'right', flexShrink: 0 }}>
             <div style={{ fontWeight: 900, fontSize: 16, color: PRIMARY }}>₹{order.totalAmount.toLocaleString('en-IN')}</div>
             <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 10px', borderRadius: 20, background: `${color}15`, marginTop: 4 }}>
-              <span style={{ fontSize: 10, fontWeight: 700, color, textTransform: 'capitalize' }}>{order.status.replace(/_/g, ' ')}</span>
+              <span style={{ fontSize: 10, fontWeight: 700, color, textTransform: 'capitalize' }}>
+                {STATUS_EMOJI[order.status] ?? ''} {order.status.replace(/_/g, ' ')}
+              </span>
             </div>
           </div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 10 }}>
-          <div style={{ fontSize: 12, color: '#8b6344' }}>{order.items.slice(0, 2).map(i => `${i.name} (${i.size})`).join(', ')}{order.items.length > 2 ? ` +${order.items.length - 2} more` : ''}</div>
+          <div style={{ fontSize: 12, color: '#8b6344' }}>
+            {order.items.slice(0, 2).map(i => `${i.name} (${i.size})`).join(', ')}
+            {order.items.length > 2 ? ` +${order.items.length - 2} more` : ''}
+          </div>
           <span style={{ color: '#8b6344' }}>{expanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}</span>
         </div>
       </button>
 
-      {/* Expanded */}
       <AnimatePresence>
         {expanded && (
           <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.3 }}
             style={{ overflow: 'hidden' }}>
             <div style={{ padding: '0 20px 20px', borderTop: '1px solid rgba(139,94,60,0.08)' }}>
-              {/* Items */}
               <div style={{ paddingTop: 16 }}>
                 <h4 style={{ fontSize: 12, fontWeight: 800, color: '#8b6344', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 12 }}>Items Ordered</h4>
                 {order.items.map((item, i) => (
@@ -157,7 +162,6 @@ function OrderCard({ order, onRaiseIssue }: { order: Order; onRaiseIssue: (order
                 </div>
               </div>
 
-              {/* Info grid */}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginTop: 16 }}>
                 <div style={{ padding: '12px 14px', borderRadius: 12, background: '#faf8f5', border: '1px solid rgba(139,94,60,0.1)' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
@@ -176,7 +180,6 @@ function OrderCard({ order, onRaiseIssue }: { order: Order; onRaiseIssue: (order
                 </div>
               </div>
 
-              {/* Courier info */}
               {order.courierName && (
                 <div style={{ marginTop: 10, padding: '12px 14px', borderRadius: 12, background: 'rgba(6,182,212,0.06)', border: '1px solid rgba(6,182,212,0.2)' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -192,10 +195,8 @@ function OrderCard({ order, onRaiseIssue }: { order: Order; onRaiseIssue: (order
                 </div>
               )}
 
-              {/* Tracking timeline */}
               <TrackingTimeline order={order} />
 
-              {/* Action buttons */}
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 20 }}>
                 {!['delivered', 'cancelled', 'returned', 'refunded'].includes(order.status) && (
                   <button onClick={() => onRaiseIssue(order.id)}
@@ -224,7 +225,6 @@ function IssueModal({ orderId, onClose, apiBase, token }: { orderId: string; onC
   const [description, setDescription] = useState('');
   const [loading, setLoading] = useState(false);
   const [done, setDone] = useState(false);
-
   const ISSUE_TYPES = ['Damaged Product', 'Wrong Product', 'Missing Product', 'Late Delivery', 'Payment Issue', 'Other'];
 
   async function submit() {
@@ -282,19 +282,78 @@ function IssueModal({ orderId, onClose, apiBase, token }: { orderId: string; onC
 
 export default function MyOrders() {
   const { apiBase, token } = useCustomer();
+  const { toast } = useToast();
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [issueOrderId, setIssueOrderId] = useState<string | null>(null);
   const [filter, setFilter] = useState('all');
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [newOrderIds, setNewOrderIds] = useState<Set<string>>(new Set());
+  const prevStatuses = useRef<Map<string, string>>(new Map());
+  const initialLoad = useRef(true);
 
-  useEffect(() => {
+  const fetchOrders = useCallback(async () => {
     if (!token) return;
-    fetch(`${apiBase}/customer/orders`, { headers: { 'x-customer-token': token } })
-      .then(r => r.json())
-      .then(d => { if (d.success) setOrders(d.orders); })
-      .catch(() => {})
-      .finally(() => setLoading(false));
-  }, [token, apiBase]);
+    try {
+      const res = await fetch(`${apiBase}/customer/orders`, {
+        headers: { 'x-customer-token': token },
+        cache: 'no-store',
+      });
+      if (!res.ok) return;
+      const d = await res.json();
+      if (!d.success) return;
+
+      const incoming: Order[] = d.orders;
+
+      if (!initialLoad.current) {
+        const changedOrders: string[] = [];
+        const freshIds = new Set<string>();
+
+        for (const order of incoming) {
+          const prev = prevStatuses.current.get(order.id);
+          if (prev === undefined) {
+            freshIds.add(order.id);
+          } else if (prev !== order.status) {
+            changedOrders.push(order.id);
+            const color = STATUS_COLORS[order.status] || '#8b6344';
+            const emoji = STATUS_EMOJI[order.status] ?? '📦';
+            toast({
+              title: `${emoji} Order Status Updated`,
+              description: `Order ${order.id} is now ${order.status.replace(/_/g, ' ')}.`,
+              duration: 7000,
+            });
+          }
+        }
+
+        if (freshIds.size > 0) {
+          setNewOrderIds(prev => {
+            const next = new Set(prev);
+            freshIds.forEach(id => next.add(id));
+            return next;
+          });
+          setTimeout(() => {
+            setNewOrderIds(new Set());
+          }, 4000);
+        }
+      } else {
+        initialLoad.current = false;
+      }
+
+      const newMap = new Map<string, string>();
+      for (const o of incoming) newMap.set(o.id, o.status);
+      prevStatuses.current = newMap;
+
+      setOrders(incoming);
+      setLastUpdated(new Date());
+    } catch {
+      /* silent on error */
+    } finally {
+      setLoading(false);
+    }
+  }, [token, apiBase, toast]);
+
+  useEffect(() => { fetchOrders(); }, [fetchOrders]);
+  usePolling(fetchOrders, 5000, !!token);
 
   const filters = [
     { key: 'all', label: 'All' },
@@ -313,13 +372,25 @@ export default function MyOrders() {
 
   return (
     <div style={{ maxWidth: 720, margin: '0 auto' }}>
-      <div style={{ display: 'flex', gap: 8, marginBottom: 20, flexWrap: 'wrap' }}>
-        {filters.map(f => (
-          <button key={f.key} onClick={() => setFilter(f.key)}
-            style={{ padding: '8px 16px', borderRadius: 20, border: `1.5px solid ${filter === f.key ? PRIMARY : 'rgba(139,94,60,0.2)'}`, background: filter === f.key ? PRIMARY : '#fff', color: filter === f.key ? '#fff9f0' : '#8b6344', fontWeight: 700, fontSize: 13, cursor: 'pointer', fontFamily: 'Poppins,sans-serif', transition: 'all 0.15s' }}>
-            {f.label}
-          </button>
-        ))}
+      {/* Filter bar + live indicator */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, flexWrap: 'wrap', gap: 10 }}>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          {filters.map(f => (
+            <button key={f.key} onClick={() => setFilter(f.key)}
+              style={{ padding: '8px 16px', borderRadius: 20, border: `1.5px solid ${filter === f.key ? PRIMARY : 'rgba(139,94,60,0.2)'}`, background: filter === f.key ? PRIMARY : '#fff', color: filter === f.key ? '#fff9f0' : '#8b6344', fontWeight: 700, fontSize: 13, cursor: 'pointer', fontFamily: 'Poppins,sans-serif', transition: 'all 0.15s' }}>
+              {f.label}
+            </button>
+          ))}
+        </div>
+        {lastUpdated && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#22c55e', display: 'inline-block', animation: 'livePulse 2s ease-in-out infinite' }} />
+            <span style={{ fontSize: 10, color: '#22c55e', fontWeight: 700 }}>LIVE</span>
+            <span style={{ fontSize: 10, color: '#c4a882' }}>
+              · {lastUpdated.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+            </span>
+          </div>
+        )}
       </div>
 
       {loading ? (
@@ -337,11 +408,13 @@ export default function MyOrders() {
           </p>
         </div>
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-          {filtered.map(order => (
-            <OrderCard key={order.id} order={order} onRaiseIssue={id => setIssueOrderId(id)} />
-          ))}
-        </div>
+        <motion.div layout style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <AnimatePresence>
+            {filtered.map(order => (
+              <OrderCard key={order.id} order={order} onRaiseIssue={id => setIssueOrderId(id)} isNew={newOrderIds.has(order.id)} />
+            ))}
+          </AnimatePresence>
+        </motion.div>
       )}
 
       <AnimatePresence>
@@ -350,7 +423,10 @@ export default function MyOrders() {
         )}
       </AnimatePresence>
 
-      <style>{`@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.5} }`}</style>
+      <style>{`
+        @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
+        @keyframes livePulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.6;transform:scale(1.4)} }
+      `}</style>
     </div>
   );
 }
