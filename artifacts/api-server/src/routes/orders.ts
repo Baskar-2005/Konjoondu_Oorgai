@@ -1,14 +1,6 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import { randomUUID } from "crypto";
-import { db } from "@workspace/db";
-import {
-  ordersTable,
-  orderItemsTable,
-  trackingStepsTable,
-  issuesTable,
-  customersTable,
-} from "@workspace/db";
-import { eq, desc, or, ilike } from "drizzle-orm";
+import { ordersCol, issuesCol, customersCol } from "../lib/firestoreDb";
 import { getCustomerFromToken } from "./auth";
 
 const router: IRouter = Router();
@@ -20,15 +12,15 @@ const VALID_STATUSES = [
 type OrderStatus = (typeof VALID_STATUSES)[number];
 
 const STATUS_INFO: Record<string, { label: string; description: string }> = {
-  pending:           { label: "Order Placed",       description: "Your order has been placed and is awaiting confirmation." },
-  confirmed:         { label: "Order Confirmed",    description: "Your order has been confirmed and will be packed soon." },
-  packed:            { label: "Order Packed",       description: "Your order has been packed and is ready for dispatch." },
-  shipped:           { label: "Order Shipped",      description: "Your order is on its way!" },
-  out_for_delivery:  { label: "Out for Delivery",   description: "Your order is out for delivery. Expect it today!" },
-  delivered:         { label: "Order Delivered",    description: "Your order has been delivered. Enjoy your pickles!" },
-  cancelled:         { label: "Order Cancelled",    description: "Your order has been cancelled." },
-  returned:          { label: "Return Initiated",   description: "Your return request has been initiated." },
-  refunded:          { label: "Refunded",            description: "Your refund has been processed." },
+  pending:          { label: "Order Placed",      description: "Your order has been placed and is awaiting confirmation." },
+  confirmed:        { label: "Order Confirmed",   description: "Your order has been confirmed and will be packed soon." },
+  packed:           { label: "Order Packed",      description: "Your order has been packed and is ready for dispatch." },
+  shipped:          { label: "Order Shipped",     description: "Your order is on its way!" },
+  out_for_delivery: { label: "Out for Delivery",  description: "Your order is out for delivery. Expect it today!" },
+  delivered:        { label: "Order Delivered",   description: "Your order has been delivered. Enjoy your pickles!" },
+  cancelled:        { label: "Order Cancelled",   description: "Your order has been cancelled." },
+  returned:         { label: "Return Initiated",  description: "Your return request has been initiated." },
+  refunded:         { label: "Refunded",          description: "Your refund has been processed." },
 };
 
 function requireAdmin(req: Request, res: Response): boolean {
@@ -40,12 +32,9 @@ function requireAdmin(req: Request, res: Response): boolean {
   return true;
 }
 
-async function formatOrder(order: typeof ordersTable.$inferSelect) {
-  const items = await db
-    .select()
-    .from(orderItemsTable)
-    .where(eq(orderItemsTable.orderId, order.id));
-
+async function formatOrder(order: Awaited<ReturnType<typeof ordersCol.findById>>) {
+  if (!order) return null;
+  const items = await ordersCol.getItems(order.id);
   return {
     id: order.id,
     customer: {
@@ -73,8 +62,7 @@ async function formatOrder(order: typeof ordersTable.$inferSelect) {
 
 async function addTrackingStep(orderId: string, status: string) {
   const info = STATUS_INFO[status] ?? { label: status, description: `Status updated to ${status}.` };
-  await db.insert(trackingStepsTable).values({
-    orderId,
+  await ordersCol.addTracking(orderId, {
     status,
     label: info.label,
     description: info.description,
@@ -82,7 +70,9 @@ async function addTrackingStep(orderId: string, status: string) {
   });
 }
 
-async function notifyTelegram(order: Awaited<ReturnType<typeof formatOrder>>): Promise<void> {
+async function notifyTelegram(
+  order: NonNullable<Awaited<ReturnType<typeof formatOrder>>>,
+): Promise<void> {
   const token = process.env.TELEGRAM_BOT_TOKEN;
   const chatId = process.env.TELEGRAM_CHAT_ID;
   if (!token || !chatId) return;
@@ -92,41 +82,33 @@ async function notifyTelegram(order: Awaited<ReturnType<typeof formatOrder>>): P
     .join("\n");
 
   const text = [
-    `🛒 *New Order — ${order.id}*`,
-    ``,
+    `🛒 *New Order — ${order.id}*`, ``,
     `👤 ${order.customer.name}`,
     `📞 ${order.customer.phone}`,
     order.customer.email ? `📧 ${order.customer.email}` : null,
-    `📍 ${order.customer.address}`,
-    ``,
-    `*Items:*`,
-    itemLines,
-    ``,
+    `📍 ${order.customer.address}`, ``,
+    `*Items:*`, itemLines, ``,
     `💰 *Total: ₹${order.totalAmount.toLocaleString("en-IN")}*`,
     order.paymentId ? `✅ Paid · ${order.paymentId}` : `⏳ Payment pending`,
   ]
     .filter((l) => l !== null)
     .join("\n");
 
-  const url = `https://api.telegram.org/bot${token}/sendMessage`;
   try {
-    const res = await fetch(url, {
+    const r = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ chat_id: chatId, text, parse_mode: "Markdown" }),
     });
-    const data = (await res.json()) as { ok: boolean; description?: string };
-    if (!data.ok) {
-      console.warn("[telegram] API error:", data.description);
-    } else {
-      console.info("[telegram] Notification sent for order", order.id);
-    }
+    const data = (await r.json()) as { ok: boolean; description?: string };
+    if (!data.ok) console.warn("[telegram] API error:", data.description);
+    else console.info("[telegram] Notification sent for order", order.id);
   } catch (err) {
     console.warn("[telegram] Failed to send notification:", err);
   }
 }
 
-// POST /api/orders — place a new order
+// POST /api/orders
 router.post("/orders", async (req, res) => {
   const { customer, items, totalAmount, paymentId } = req.body as {
     customer: { name: string; phone: string; email?: string; address: string };
@@ -143,36 +125,37 @@ router.post("/orders", async (req, res) => {
   const id = "KO-" + randomUUID().slice(0, 8).toUpperCase();
   const status = paymentId ? "confirmed" : "pending";
 
-  await db.insert(ordersTable).values({
+  const order = await ordersCol.create({
     id,
+    razorpayOrderId: null,
     razorpayPaymentId: paymentId || null,
     customerName: customer.name,
     customerEmail: customer.email || "",
+    customerEmailLower: (customer.email || "").toLowerCase(),
     customerPhone: customer.phone,
     shippingAddress: customer.address,
     totalAmount,
     status,
+    courierName: null,
+    trackingId: null,
+    estimatedDelivery: null,
   });
 
-  await db.insert(orderItemsTable).values(
+  await ordersCol.addItems(
+    id,
     items.map((i) => ({
-      orderId: id,
       productId: String(i.productId),
       name: i.productName,
       size: i.size,
       price: i.price,
       quantity: i.quantity,
-    }))
+    })),
   );
 
   await addTrackingStep(id, "pending");
-  if (status === "confirmed") {
-    await addTrackingStep(id, "confirmed");
-  }
+  if (status === "confirmed") await addTrackingStep(id, "confirmed");
 
-  const formatted = await formatOrder(
-    (await db.select().from(ordersTable).where(eq(ordersTable.id, id)))[0]
-  );
+  const formatted = await formatOrder(order);
 
   res.status(201).json({
     success: true,
@@ -181,69 +164,49 @@ router.post("/orders", async (req, res) => {
     order: formatted,
   });
 
-  notifyTelegram(formatted);
+  if (formatted) notifyTelegram(formatted);
 });
 
-// GET /api/orders — list all orders (admin) or by customer email/phone (public)
+// GET /api/orders
 router.get("/orders", async (req, res) => {
   const { customer_email, customer_phone } = req.query as {
     customer_email?: string;
     customer_phone?: string;
   };
 
-  // Public: look up by customer email or phone
   if (customer_email || customer_phone) {
-    const conditions = [];
-    if (customer_email) conditions.push(ilike(ordersTable.customerEmail, customer_email));
-    if (customer_phone) conditions.push(eq(ordersTable.customerPhone, customer_phone));
-
-    const rows = await db
-      .select()
-      .from(ordersTable)
-      .where(or(...conditions))
-      .orderBy(desc(ordersTable.createdAt));
-
-    const orders = await Promise.all(rows.map(formatOrder));
+    const [byEmail, byPhone] = await Promise.all([
+      customer_email ? ordersCol.findByEmail(customer_email) : Promise.resolve([]),
+      customer_phone ? ordersCol.findByPhone(customer_phone) : Promise.resolve([]),
+    ]);
+    const seen = new Set<string>();
+    const merged = [...byEmail, ...byPhone].filter((o) => {
+      if (seen.has(o.id)) return false;
+      seen.add(o.id);
+      return true;
+    });
+    merged.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+    const orders = await Promise.all(merged.map(formatOrder));
     res.json({ success: true, orders, total: orders.length });
     return;
   }
 
-  // Admin: full list
   if (!requireAdmin(req, res)) return;
-
-  const rows = await db
-    .select()
-    .from(ordersTable)
-    .orderBy(desc(ordersTable.createdAt));
-
+  const rows = await ordersCol.findAll();
   const allOrders = await Promise.all(rows.map(formatOrder));
   res.json({ success: true, orders: allOrders, total: allOrders.length });
 });
 
-// GET /api/orders/:id — single order (public for tracking, or admin)
+// GET /api/orders/:id
 router.get("/orders/:id", async (req, res) => {
-  const rows = await db
-    .select()
-    .from(ordersTable)
-    .where(eq(ordersTable.id, req.params.id));
-
-  if (!rows.length) {
-    res.status(404).json({ success: false, message: "Order not found." });
-    return;
-  }
-
-  const order = await formatOrder(rows[0]);
-  res.json({ success: true, order });
+  const order = await ordersCol.findById(req.params.id);
+  if (!order) { res.status(404).json({ success: false, message: "Order not found." }); return; }
+  res.json({ success: true, order: await formatOrder(order) });
 });
 
-// GET /api/orders/:id/tracking — tracking steps for an order
+// GET /api/orders/:id/tracking
 router.get("/orders/:id/tracking", async (req, res) => {
-  const steps = await db
-    .select()
-    .from(trackingStepsTable)
-    .where(eq(trackingStepsTable.orderId, req.params.id))
-    .orderBy(trackingStepsTable.timestamp);
-
+  const steps = await ordersCol.getTracking(req.params.id);
   res.json({
     success: true,
     steps: steps.map((s) => ({
@@ -257,147 +220,76 @@ router.get("/orders/:id/tracking", async (req, res) => {
   });
 });
 
-// PATCH /api/orders/:id/status — update order status (admin only)
+// PATCH /api/orders/:id/status (admin)
 router.patch("/orders/:id/status", async (req, res) => {
   if (!requireAdmin(req, res)) return;
-
   const { status } = req.body as { status: string };
   if (!VALID_STATUSES.includes(status as OrderStatus)) {
     res.status(400).json({ success: false, message: "Invalid status." });
     return;
   }
-
-  const rows = await db
-    .select()
-    .from(ordersTable)
-    .where(eq(ordersTable.id, req.params.id));
-
-  if (!rows.length) {
-    res.status(404).json({ success: false, message: "Order not found." });
-    return;
-  }
-
-  await db
-    .update(ordersTable)
-    .set({ status, updatedAt: new Date() })
-    .where(eq(ordersTable.id, req.params.id));
-
+  const order = await ordersCol.findById(req.params.id);
+  if (!order) { res.status(404).json({ success: false, message: "Order not found." }); return; }
+  await ordersCol.update(req.params.id, { status });
   await addTrackingStep(req.params.id, status);
-
-  const order = await formatOrder(
-    (await db.select().from(ordersTable).where(eq(ordersTable.id, req.params.id)))[0]
-  );
-
-  res.json({ success: true, order });
+  const updated = await ordersCol.findById(req.params.id);
+  res.json({ success: true, order: await formatOrder(updated) });
 });
 
-// PATCH /api/orders/:id/shipment — update shipment details (admin only)
+// PATCH /api/orders/:id/shipment (admin)
 router.patch("/orders/:id/shipment", async (req, res) => {
   if (!requireAdmin(req, res)) return;
-
   const { courierName, trackingId, estimatedDelivery } = req.body as {
-    courierName?: string;
-    trackingId?: string;
-    estimatedDelivery?: string;
+    courierName?: string; trackingId?: string; estimatedDelivery?: string;
   };
-
-  const rows = await db
-    .select()
-    .from(ordersTable)
-    .where(eq(ordersTable.id, req.params.id));
-
-  if (!rows.length) {
-    res.status(404).json({ success: false, message: "Order not found." });
-    return;
-  }
-
-  await db
-    .update(ordersTable)
-    .set({
-      courierName: courierName || null,
-      trackingId: trackingId || null,
-      estimatedDelivery: estimatedDelivery || null,
-      updatedAt: new Date(),
-    })
-    .where(eq(ordersTable.id, req.params.id));
-
-  const order = await formatOrder(
-    (await db.select().from(ordersTable).where(eq(ordersTable.id, req.params.id)))[0]
-  );
-
-  res.json({ success: true, order });
+  const order = await ordersCol.findById(req.params.id);
+  if (!order) { res.status(404).json({ success: false, message: "Order not found." }); return; }
+  await ordersCol.update(req.params.id, {
+    courierName: courierName || null,
+    trackingId: trackingId || null,
+    estimatedDelivery: estimatedDelivery || null,
+  });
+  const updated = await ordersCol.findById(req.params.id);
+  res.json({ success: true, order: await formatOrder(updated) });
 });
 
-// POST /api/orders/:id/issues — raise a customer issue (requires customer auth + ownership)
+// POST /api/orders/:id/issues
 router.post("/orders/:id/issues", async (req, res) => {
   const customerId = await getCustomerFromToken(req, res);
   if (!customerId) return;
-
   const { type, description } = req.body as { type: string; description: string };
   if (!type || !description) {
     res.status(400).json({ success: false, message: "type and description are required." });
     return;
   }
-
-  const orderRows = await db.select().from(ordersTable).where(eq(ordersTable.id, req.params.id));
-  if (!orderRows.length) {
-    res.status(404).json({ success: false, message: "Order not found." });
-    return;
-  }
-
-  // Verify the order belongs to this customer (match by phone)
-  const custRows = await db.select().from(customersTable).where(eq(customersTable.id, customerId));
-  if (!custRows.length || orderRows[0].customerPhone !== custRows[0].phone) {
+  const order = await ordersCol.findById(req.params.id);
+  if (!order) { res.status(404).json({ success: false, message: "Order not found." }); return; }
+  const customer = await customersCol.findById(customerId);
+  if (!customer || order.customerPhone !== customer.phone) {
     res.status(403).json({ success: false, message: "You do not own this order." });
     return;
   }
-
-  const [issue] = await db
-    .insert(issuesTable)
-    .values({ orderId: req.params.id, type, description })
-    .returning();
-
+  const issue = await issuesCol.create(req.params.id, { type, description });
   res.status(201).json({ success: true, issue });
 });
 
-// GET /api/issues — list all issues (admin only)
+// GET /api/issues (admin)
 router.get("/issues", async (req, res) => {
   if (!requireAdmin(req, res)) return;
-
-  const issues = await db
-    .select()
-    .from(issuesTable)
-    .orderBy(desc(issuesTable.createdAt));
-
+  const issues = await issuesCol.findAll();
   res.json({ success: true, issues, total: issues.length });
 });
 
-// PATCH /api/issues/:id — admin reply / resolve issue
+// PATCH /api/issues/:id (admin)
 router.patch("/issues/:id", async (req, res) => {
   if (!requireAdmin(req, res)) return;
-
   const { adminReply, status } = req.body as { adminReply?: string; status?: string };
-
-  const rows = await db
-    .select()
-    .from(issuesTable)
-    .where(eq(issuesTable.id, Number(req.params.id)));
-
-  if (!rows.length) {
-    res.status(404).json({ success: false, message: "Issue not found." });
-    return;
-  }
-
-  const updates: Partial<typeof issuesTable.$inferInsert> = {};
+  const existing = await issuesCol.findById(req.params.id);
+  if (!existing) { res.status(404).json({ success: false, message: "Issue not found." }); return; }
+  const updates: { adminReply?: string; status?: string } = {};
   if (adminReply !== undefined) updates.adminReply = adminReply;
   if (status !== undefined) updates.status = status;
-
-  const [updated] = await db
-    .update(issuesTable)
-    .set(updates)
-    .where(eq(issuesTable.id, Number(req.params.id)))
-    .returning();
-
+  const updated = await issuesCol.update(req.params.id, updates);
   res.json({ success: true, issue: updated });
 });
 

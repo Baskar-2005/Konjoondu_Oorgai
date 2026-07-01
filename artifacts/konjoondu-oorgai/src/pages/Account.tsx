@@ -229,6 +229,7 @@ export default function AccountPage() {
       const timer = setTimeout(() => setShowFirstLogin(true), 600);
       return () => clearTimeout(timer);
     }
+    return undefined;
   }, [customer?.isFirstLogin]);
 
   if (loading) {

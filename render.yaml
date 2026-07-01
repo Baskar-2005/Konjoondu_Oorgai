@@ -20,9 +20,10 @@ services:
       - key: LOG_LEVEL
         value: info
 
-      # ── Database ──────────────────────────────────────────────
-      - key: DATABASE_URL
-        sync: false          # set manually in Render dashboard
+      # ── Firebase (Firestore database) ────────────────────────
+      # Paste the full JSON content of your service account key here
+      - key: FIREBASE_SERVICE_ACCOUNT
+        sync: false
 
       # ── Payments (Razorpay) ──────────────────────────────────
       - key: RAZORPAY_KEY_ID
