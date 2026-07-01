@@ -6,12 +6,12 @@ import { randomUUID } from "crypto";
 const router: IRouter = Router();
 
 function getRazorpay() {
-  if (!process.env.RAZORPAY_KEY_ID || !process.env.RAZORPAY_KEY_SECRET) {
+  if (!process.env.RAZORPAY_KEY_ID || !process.env.RAZORPAY_SECRET_KEY) {
     return null;
   }
   return new Razorpay({
     key_id: process.env.RAZORPAY_KEY_ID,
-    key_secret: process.env.RAZORPAY_KEY_SECRET,
+    key_secret: process.env.RAZORPAY_SECRET_KEY,
   });
 }
 
@@ -65,7 +65,7 @@ router.post("/payments/create-order", async (req, res) => {
 
 // POST /api/payments/verify — verify payment signature after success
 router.post("/payments/verify", (req, res) => {
-  if (!process.env.RAZORPAY_KEY_SECRET) {
+  if (!process.env.RAZORPAY_SECRET_KEY) {
     res.status(503).json({ success: false, message: "Payment gateway not configured." });
     return;
   }
@@ -82,7 +82,7 @@ router.post("/payments/verify", (req, res) => {
   }
 
   const body = razorpay_order_id + "|" + razorpay_payment_id;
-  const expectedSignature = createHmac("sha256", process.env.RAZORPAY_KEY_SECRET)
+  const expectedSignature = createHmac("sha256", process.env.RAZORPAY_SECRET_KEY)
     .update(body)
     .digest("hex");
 
