@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Phone, Lock, Eye, EyeOff, ArrowRight, AlertCircle, CheckCircle2, RefreshCw } from 'lucide-react';
-import { signInWithPhoneNumber, RecaptchaVerifier, GoogleAuthProvider, signInWithRedirect, getRedirectResult, type ConfirmationResult } from 'firebase/auth';
+import { signInWithPhoneNumber, RecaptchaVerifier, GoogleAuthProvider, signInWithPopup, type ConfirmationResult } from 'firebase/auth';
 import { firebaseAuth } from '@/lib/firebase';
 import { useCustomer } from '@/context/CustomerContext';
 
@@ -278,44 +278,30 @@ export default function AuthPage({ onSuccess }: { onSuccess?: () => void }) {
   }
 
   // ── GOOGLE SIGN-IN ────────────────────────────────────────────────────────
-  // Replit's COOP headers block window.closed polling in popups, so we use
-  // signInWithRedirect instead. The result is picked up on the next mount via
-  // getRedirectResult in the useEffect below.
   async function handleGoogleSignIn() {
     setLoading(true); setError('');
     try {
       const provider = new GoogleAuthProvider();
-      await signInWithRedirect(firebaseAuth, provider);
-      // Page will redirect to Google — code below won't run until redirect back
-    } catch {
-      setError('Google sign-in failed. Please try again.');
-      setLoading(false);
-    }
-  }
-
-  // Pick up Google redirect result when the page loads after returning from Google
-  useEffect(() => {
-    async function handleRedirectResult() {
-      try {
-        const result = await getRedirectResult(firebaseAuth);
-        if (!result) return; // No pending redirect
-        setLoading(true);
-        const firebaseToken = await result.user.getIdToken();
-        const res = await fetch(`${apiBase}/auth/google`, {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ firebaseToken }),
-        });
-        const data = await res.json();
-        if (data.success) { login(data.token, data.customer); onSuccess?.(); }
-        else setError(data.message || 'Google sign-in failed.');
-      } catch {
-        // No redirect result or already consumed — safe to ignore
-      } finally {
-        setLoading(false);
+      const result = await signInWithPopup(firebaseAuth, provider);
+      const firebaseToken = await result.user.getIdToken();
+      const res = await fetch(`${apiBase}/auth/google`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ firebaseToken }),
+      });
+      const data = await res.json();
+      if (data.success) { login(data.token, data.customer); onSuccess?.(); }
+      else setError(data.message || 'Google sign-in failed.');
+    } catch (err: unknown) {
+      const code = (err as { code?: string }).code ?? '';
+      if (code === 'auth/popup-closed-by-user' || code === 'auth/cancelled-popup-request') {
+        // user closed the popup — no error message needed
+      } else if (code === 'auth/popup-blocked') {
+        setError('Popup was blocked by your browser. Please allow popups for this site and try again.');
+      } else {
+        setError('Google sign-in failed. Please try again.');
       }
-    }
-    handleRedirectResult();
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+    } finally { setLoading(false); }
+  }
 
   async function handleResendOtp() {
     if (resendCooldown > 0) return;
