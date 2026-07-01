@@ -2,7 +2,7 @@ import { Router, type IRouter, type Request, type Response } from "express";
 import { randomBytes, pbkdf2Sync } from "crypto";
 import { randomUUID } from "crypto";
 import { db } from "@workspace/db";
-import { customersTable, customerSessionsTable } from "@workspace/db";
+import { customersTable, customerSessionsTable, notificationsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 
 const router: IRouter = Router();
@@ -155,6 +155,15 @@ router.post("/auth/register", async (req, res) => {
 
   const token = await createSession(customer.id);
   const updated = await db.select().from(customersTable).where(eq(customersTable.id, customer.id));
+
+  // Seed a welcome notification for new customers
+  await db.insert(notificationsTable).values({
+    customerId: customer.id,
+    type: "order_update",
+    title: "Welcome to Konjoondu Oorgai! 🥒",
+    body: "Your account is ready. Browse our handcrafted pickle range and place your first order.",
+    isRead: false,
+  });
 
   res.status(201).json({ success: true, token, customer: safeCustomer(updated[0]) });
 });

@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Flame, ShoppingCart, Plus, Minus, Star, ChevronRight } from 'lucide-react';
+import { X, Flame, ShoppingCart, Plus, Minus, Star, Heart } from 'lucide-react';
 import type { Product } from '@/data/products';
 import { useCart } from '@/context/CartContext';
+import { useCustomer } from '@/context/CustomerContext';
 import { useToast } from '@/hooks/use-toast';
 
 interface ProductModalProps {
@@ -13,9 +14,11 @@ interface ProductModalProps {
 
 function ModalInner({ product, onClose }: { product: Product; onClose: () => void }) {
   const { addItem } = useCart();
+  const { token, apiBase } = useCustomer();
   const { toast } = useToast();
   const [selectedSizeIdx, setSelectedSizeIdx] = useState(0);
   const [quantity, setQuantity] = useState(1);
+  const [wishlisted, setWishlisted] = useState(false);
 
   React.useEffect(() => {
     setSelectedSizeIdx(0);
@@ -35,6 +38,20 @@ function ModalInner({ product, onClose }: { product: Product; onClose: () => voi
     }, quantity);
     toast({ title: 'Added to cart!', description: `${product.name} (${selectedSize.label}) × ${quantity}` });
     onClose();
+  }
+
+  async function handleWishlist() {
+    if (!token) { onClose(); window.location.href = '/account'; return; }
+    if (wishlisted) return;
+    try {
+      await fetch(`${apiBase}/customer/wishlist`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-customer-token': token },
+        body: JSON.stringify({ productId: product.id, productName: product.name, price: selectedSize.price, image: product.image }),
+      });
+      setWishlisted(true);
+      toast({ title: wishlisted ? 'Already in wishlist' : '❤️ Added to wishlist!', description: product.name });
+    } catch { /* silent */ }
   }
 
   return (
@@ -209,10 +226,21 @@ function ModalInner({ product, onClose }: { product: Product; onClose: () => voi
           </div>
 
           {/* ── Sticky footer ── */}
-          <div style={{ padding: '14px 24px', borderTop: '1px solid rgba(139,94,60,0.1)', flexShrink: 0, background: 'hsl(var(--background))' }}>
+          <div style={{ padding: '14px 24px', borderTop: '1px solid rgba(139,94,60,0.1)', flexShrink: 0, background: 'hsl(var(--background))', display: 'flex', gap: 10 }}>
+            <button onClick={handleWishlist}
+              title={wishlisted ? 'In wishlist' : 'Add to wishlist'}
+              style={{
+                flexShrink: 0, width: 52, padding: '15px 0', borderRadius: 18, border: '1.5px solid rgba(139,94,60,0.2)',
+                background: wishlisted ? 'rgba(239,68,68,0.08)' : 'transparent',
+                cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontFamily: 'inherit',
+              }}
+            >
+              <Heart size={20} fill={wishlisted ? '#ef4444' : 'none'} color={wishlisted ? '#ef4444' : '#8b6344'} />
+            </button>
             <button onClick={handleAdd}
               style={{
-                width: '100%', padding: '15px', borderRadius: 18, border: 'none',
+                flex: 1, padding: '15px', borderRadius: 18, border: 'none',
                 background: 'linear-gradient(135deg, hsl(4,65%,48%), hsl(4,60%,38%))',
                 color: '#FFF9F0', fontWeight: 700, fontSize: 16, cursor: 'pointer',
                 display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,

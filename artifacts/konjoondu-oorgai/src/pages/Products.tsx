@@ -1,9 +1,10 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, useInView, AnimatePresence } from 'framer-motion';
-import { Flame, ShoppingCart, Search, SlidersHorizontal, Plus, Minus, Eye, Clock } from 'lucide-react';
+import { Flame, ShoppingCart, Search, SlidersHorizontal, Plus, Minus, Eye, Clock, Heart } from 'lucide-react';
 import { products, categories } from '@/data/products';
 import type { Product, ProductSize } from '@/data/products';
 import { useCart } from '@/context/CartContext';
+import { useCustomer } from '@/context/CustomerContext';
 import { ThemeProvider } from '@/components/ThemeProvider';
 import Navigation from '@/components/Navigation';
 import ProductModal from '@/components/ProductModal';
@@ -331,12 +332,28 @@ function RecentCard({ product, index, onViewDetails }: {
   const ref = useRef(null);
   const isInView = useInView(ref, { once: true, margin: '-20px' });
   const { addItem } = useCart();
+  const { token, apiBase } = useCustomer();
   const [added, setAdded] = useState(false);
+  const [wishlisted, setWishlisted] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => () => { if (timer.current) clearTimeout(timer.current); }, []);
 
   const firstSize = product.sizes[0];
+
+  async function handleWishlist(e: React.MouseEvent) {
+    e.stopPropagation();
+    if (!token) { window.location.href = '/account'; return; }
+    if (wishlisted) return;
+    try {
+      await fetch(`${apiBase}/customer/wishlist`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-customer-token': token },
+        body: JSON.stringify({ productId: product.id, productName: product.name, price: firstSize.price, image: product.image }),
+      });
+      setWishlisted(true);
+    } catch { /* silent */ }
+  }
 
   function handleQuickAdd(e: React.MouseEvent) {
     e.stopPropagation();
@@ -380,23 +397,30 @@ function RecentCard({ product, index, onViewDetails }: {
         <p className="text-sm font-bold leading-tight mb-2 line-clamp-1">{product.name}</p>
         <div className="flex items-center justify-between gap-2">
           <span className="text-base font-bold" style={{ color: 'hsl(4,60%,44%)' }}>₹{firstSize.price}</span>
-          <AnimatePresence mode="wait">
-            <motion.button
-              key={added ? 'done' : 'add'}
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.9 }}
-              transition={{ duration: 0.12 }}
-              onClick={handleQuickAdd}
-              className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-bold"
-              style={{
-                background: added ? 'hsl(140,60%,38%)' : 'rgba(181,58,46,0.1)',
-                color: added ? '#fff' : 'hsl(4,60%,44%)',
-              }}>
-              {added ? '✓' : <ShoppingCart size={11} />}
-              {added ? 'Added' : 'Add'}
-            </motion.button>
-          </AnimatePresence>
+          <div className="flex items-center gap-1.5">
+            <button onClick={handleWishlist} title={wishlisted ? 'In wishlist' : 'Add to wishlist'}
+              className="flex items-center justify-center w-7 h-7 rounded-lg"
+              style={{ background: wishlisted ? 'rgba(239,68,68,0.1)' : 'rgba(139,94,60,0.08)', border: 'none', cursor: 'pointer' }}>
+              <Heart size={12} fill={wishlisted ? '#ef4444' : 'none'} color={wishlisted ? '#ef4444' : '#8b6344'} />
+            </button>
+            <AnimatePresence mode="wait">
+              <motion.button
+                key={added ? 'done' : 'add'}
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.9 }}
+                transition={{ duration: 0.12 }}
+                onClick={handleQuickAdd}
+                className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-bold"
+                style={{
+                  background: added ? 'hsl(140,60%,38%)' : 'rgba(181,58,46,0.1)',
+                  color: added ? '#fff' : 'hsl(4,60%,44%)',
+                }}>
+                {added ? '✓' : <ShoppingCart size={11} />}
+                {added ? 'Added' : 'Add'}
+              </motion.button>
+            </AnimatePresence>
+          </div>
         </div>
       </div>
     </motion.div>

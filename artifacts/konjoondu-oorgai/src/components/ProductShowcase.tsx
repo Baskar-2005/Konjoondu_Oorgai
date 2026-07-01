@@ -1,10 +1,11 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { motion, useInView, AnimatePresence } from 'framer-motion';
-import { Flame, ShoppingCart, ArrowRight, Plus, Minus, Eye } from 'lucide-react';
+import { Flame, ShoppingCart, ArrowRight, Plus, Minus, Eye, Heart } from 'lucide-react';
 import { useLocation } from 'wouter';
 import { products } from '@/data/products';
 import type { Product, ProductSize } from '@/data/products';
 import { useCart } from '@/context/CartContext';
+import { useCustomer } from '@/context/CustomerContext';
 import ProductModal from '@/components/ProductModal';
 
 export default function ProductShowcase() {
@@ -82,16 +83,33 @@ function ProductCard({
   const cardRef = useRef(null);
   const isInView = useInView(cardRef, { once: true, margin: '-50px' });
   const { addItem } = useCart();
+  const { token, apiBase } = useCustomer();
 
   const [selectedSizeIdx, setSelectedSizeIdx] = useState(0);
   const [qty, setQty] = useState(1);
   const [added, setAdded] = useState(false);
+  const [wishlisted, setWishlisted] = useState(false);
   const addedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Cleanup timer on unmount
   useEffect(() => () => { if (addedTimer.current) clearTimeout(addedTimer.current); }, []);
 
   const selectedSize: ProductSize = product.sizes[selectedSizeIdx];
+
+  async function handleWishlist(e: React.MouseEvent) {
+    e.stopPropagation();
+    if (!token) { window.location.href = '/account'; return; }
+    if (wishlisted) return;
+    const selectedSize: ProductSize = product.sizes[selectedSizeIdx];
+    try {
+      await fetch(`${apiBase}/customer/wishlist`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-customer-token': token },
+        body: JSON.stringify({ productId: product.id, productName: product.name, price: selectedSize.price, image: product.image }),
+      });
+      setWishlisted(true);
+    } catch { /* silent */ }
+  }
 
   function handleAdd(e: React.MouseEvent) {
     e.stopPropagation();
@@ -140,6 +158,15 @@ function ProductCard({
           title="View details"
         >
           <Eye size={13} />
+        </button>
+        {/* Wishlist */}
+        <button
+          onClick={handleWishlist}
+          className="absolute top-3 right-12 p-1.5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-200 shadow"
+          style={{ background: wishlisted ? 'rgba(239,68,68,0.9)' : 'rgba(255,255,255,0.9)' }}
+          title={wishlisted ? 'In wishlist' : 'Add to wishlist'}
+        >
+          <Heart size={13} fill={wishlisted ? '#fff' : 'none'} color={wishlisted ? '#fff' : '#8b6344'} />
         </button>
 
         {/* Spice flames */}

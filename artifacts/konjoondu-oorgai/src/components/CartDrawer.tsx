@@ -74,10 +74,13 @@ function CartDrawerContent() {
       }
 
       // Step 2: create Razorpay order on backend
+      // TEST MODE: charge ₹0.1 so you can verify the full payment flow without real charges.
+      // Remove this override (use totalAmount) before going live.
+      const TEST_AMOUNT = 0.1;
       const createRes = await fetch(`${API_BASE}/payments/create-order`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ amount: totalAmount }),
+        body: JSON.stringify({ amount: TEST_AMOUNT }),
       });
       const createData = await createRes.json();
       if (!createData.success) {
@@ -317,6 +320,16 @@ function CartDrawerContent() {
                       Secure payment via <strong style={{ color: 'hsl(4,60%,44%)' }}>Razorpay</strong>. UPI, Cards, Net Banking &amp; more accepted.
                     </p>
                   </div>
+                  {/* Test mode badge */}
+                  <div style={{
+                    display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px',
+                    borderRadius: 10, background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.3)',
+                  }}>
+                    <span style={{ fontSize: 14 }}>🧪</span>
+                    <p style={{ fontSize: 11, color: '#b45309', lineHeight: 1.4 }}>
+                      <strong>Test Mode:</strong> Only ₹0.1 will be charged. Real order total shown for reference.
+                    </p>
+                  </div>
 
                   {[
                     { key: 'name', label: 'Full Name *', type: 'text', placeholder: 'Your name' },
@@ -372,9 +385,15 @@ function CartDrawerContent() {
                         <span style={{ fontWeight: 600 }}>₹{item.price * item.quantity}</span>
                       </div>
                     ))}
-                    <div style={{ borderTop: '1px solid rgba(139,94,60,0.15)', marginTop: 8, paddingTop: 8, display: 'flex', justifyContent: 'space-between', fontWeight: 800 }}>
-                      <span>Total</span>
-                      <span style={{ color: 'hsl(4,60%,44%)', fontSize: 17 }}>₹{totalAmount}</span>
+                    <div style={{ borderTop: '1px solid rgba(139,94,60,0.15)', marginTop: 8, paddingTop: 8 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 800 }}>
+                        <span>Total</span>
+                        <span style={{ color: 'hsl(4,60%,44%)', fontSize: 17 }}>₹{totalAmount}</span>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: '#b45309', marginTop: 4, fontWeight: 600 }}>
+                        <span>🧪 Test charge</span>
+                        <span>₹0.10</span>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -459,7 +478,7 @@ function CartDrawerContent() {
                       display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
                       boxShadow: '0 6px 20px rgba(181,58,46,0.3)', fontFamily: 'inherit',
                     }}>
-                    {loading ? 'Opening Payment…' : `Pay ₹${totalAmount} via Razorpay`}
+                    {loading ? 'Opening Payment…' : `Pay ₹0.10 via Razorpay (Test)`}
                     {!loading && <span style={{ fontSize: 16 }}>🔒</span>}
                   </button>
                 )}
