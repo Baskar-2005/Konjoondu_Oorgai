@@ -65,6 +65,19 @@ async function verifyFirebasePhoneToken(idToken: string): Promise<string | null>
   }
 }
 
+/**
+ * Verify any Firebase ID token and return the decoded claims.
+ * Works for Google, Phone, and any other Firebase-supported provider.
+ */
+async function verifyFirebaseToken(idToken: string) {
+  try {
+    void (fdb as unknown as { _dummy?: unknown })._dummy;
+    return await getAdminAuth().verifyIdToken(idToken);
+  } catch {
+    return null;
+  }
+}
+
 // ─── POST /auth/register ──────────────────────────────────────────────────────
 // Accepts a Firebase Phone Auth ID token (phone already verified by Firebase)
 // plus the password the user wants to set.
@@ -230,6 +243,63 @@ router.post("/auth/reset-password", async (req, res) => {
   await sessionsCol.deleteByCustomerId(customer.id);
   const token = await createSession(customer.id);
   res.json({ success: true, token, customer: safeCustomer(updated) });
+});
+
+// ─── POST /auth/google ────────────────────────────────────────────────────────
+// Accepts a Firebase Google ID token. Finds-or-creates a customer by email.
+// Google users have no password — they always sign in via Google popup.
+router.post("/auth/google", async (req, res) => {
+  const { firebaseToken } = req.body as { firebaseToken?: string };
+  if (!firebaseToken?.trim()) {
+    res.status(400).json({ success: false, message: "Firebase token is required." });
+    return;
+  }
+
+  const decoded = await verifyFirebaseToken(firebaseToken);
+  if (!decoded || !decoded.email) {
+    res.status(401).json({ success: false, message: "Google sign-in verification failed." });
+    return;
+  }
+
+  const email = decoded.email.toLowerCase();
+  const name = (decoded.name as string | undefined) ?? "";
+  const picture = (decoded.picture as string | undefined) ?? "";
+
+  let customer = await customersCol.findByEmail(email);
+
+  if (!customer) {
+    const id = "CUST-" + randomUUID().slice(0, 8).toUpperCase();
+    customer = await customersCol.create(id, {
+      phone: "",
+      email,
+      name,
+      dob: "",
+      gender: "",
+      passwordHash: "",
+      salt: "",
+      profilePicture: picture,
+      rewardPoints: 0,
+      isVerified: true,
+      isFirstLogin: true,
+      pendingOtp: "",
+      otpExpiry: null,
+      communicationPrefs: { email: true, sms: true, whatsapp: true },
+    });
+
+    await notificationsCol.create({
+      customerId: customer.id,
+      type: "order_update",
+      title: "Welcome to Konjoondu Oorgai! 🥒",
+      body: "Your account is ready. Browse our handcrafted pickle range and place your first order.",
+      isRead: false,
+      metadata: {},
+    });
+  } else if (!customer.name && name) {
+    customer = await customersCol.update(customer.id, { name });
+  }
+
+  const token = await createSession(customer.id);
+  res.json({ success: true, token, customer: safeCustomer(customer) });
 });
 
 export default router;

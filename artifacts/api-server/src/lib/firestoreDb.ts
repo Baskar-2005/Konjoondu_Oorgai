@@ -246,6 +246,17 @@ export const customersCol = {
     if (snap.empty) return;
     await snap.docs[0].ref.update({ ...updates, updatedAt: new Date() });
   },
+
+  async findByEmail(email: string): Promise<Customer | null> {
+    const snap = await fdb
+      .collection("customers")
+      .where("email", "==", email.toLowerCase())
+      .limit(1)
+      .get();
+    if (snap.empty) return null;
+    const doc = snap.docs[0];
+    return toCustomer(doc.id, doc.data() as Record<string, unknown>);
+  },
 };
 
 // ── Sessions ──────────────────────────────────────────────────────────────────
