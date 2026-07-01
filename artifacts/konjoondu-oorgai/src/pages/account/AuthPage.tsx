@@ -105,22 +105,45 @@ export default function AuthPage({ onSuccess }: { onSuccess?: () => void }) {
     finally { setLoading(false); }
   }
 
-  async function handleSendOtp() {
+  // Single-step register: send-otp then immediately register if OTP comes back (dev).
+  // Falls back to manual OTP entry if the server doesn't return it (production).
+  async function handleRegisterSubmit() {
     if (!phone.trim()) { setError('Phone number is required.'); return; }
+    if (!newPassword.trim()) { setError('Password is required.'); return; }
+    if (newPassword !== confirmPassword) { setError('Passwords do not match.'); return; }
+    if (newPassword.length < 6) { setError('Password must be at least 6 characters.'); return; }
     setLoading(true); setError('');
     try {
-      const res = await fetch(`${apiBase}/auth/send-otp`, {
+      // Step 1: request OTP
+      const otpRes = await fetch(`${apiBase}/auth/send-otp`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ phone: phone.trim() }),
       });
-      const data = await res.json();
-      if (data.success) { setDevOtp(data.otp || ''); setStep('otp'); }
-      else setError(data.message || 'Failed to send OTP.');
-    } catch { setError('Network error.'); }
+      const otpData = await otpRes.json();
+      if (!otpData.success) { setError(otpData.message || 'Failed to send OTP.'); return; }
+
+      const returnedOtp: string | undefined = otpData.otp;
+
+      if (returnedOtp) {
+        // Dev mode: OTP in response — register immediately, no manual entry needed
+        const regRes = await fetch(`${apiBase}/auth/register`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ phone: phone.trim(), password: newPassword, otp: returnedOtp }),
+        });
+        const regData = await regRes.json();
+        if (regData.success) { login(regData.token, regData.customer); onSuccess?.(); }
+        else setError(regData.message || 'Registration failed.');
+      } else {
+        // Production: OTP sent via SMS, show manual entry step
+        setDevOtp('');
+        setStep('otp');
+      }
+    } catch { setError('Network error. Make sure the server is running.'); }
     finally { setLoading(false); }
   }
 
   async function handleRegister() {
+    // Called only in production fallback (manual OTP entry step)
     if (!otp.trim() || !newPassword.trim()) { setError('OTP and password are required.'); return; }
     if (newPassword !== confirmPassword) { setError('Passwords do not match.'); return; }
     if (newPassword.length < 6) { setError('Password must be at least 6 characters.'); return; }
@@ -249,33 +272,34 @@ export default function AuthPage({ onSuccess }: { onSuccess?: () => void }) {
           </div>
         )}
 
-        {/* REGISTER FORM */}
+        {/* REGISTER FORM — single step; OTP is handled automatically in dev */}
         {mode === 'register' && step === 'phone' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
             <InputField label="Phone Number" type="tel" value={phone} onChange={setPhone} placeholder="+91 98765 43210" icon={<Phone size={15} />} />
-            <p style={{ fontSize: 12, color: '#8b6344', lineHeight: 1.6 }}>
-              We'll send a one-time password to verify your number. No spam, ever.
-            </p>
-            <PrimaryBtn onClick={handleSendOtp} loading={loading} disabled={!phone.trim()}>
-              Send OTP <ArrowRight size={16} />
-            </PrimaryBtn>
-          </div>
-        )}
-
-        {mode === 'register' && step === 'otp' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-            <p style={{ fontSize: 13, color: '#8b6344' }}>OTP sent to <strong>{phone}</strong></p>
-            <InputField label="Enter OTP" type="text" value={otp} onChange={setOtp} placeholder="6-digit code" />
-            <InputField label="Create Password" type={showPwd ? 'text' : 'password'} value={newPassword} onChange={setNewPassword} placeholder="Min. 6 characters"
+            <InputField label="Password" type={showPwd ? 'text' : 'password'} value={newPassword} onChange={setNewPassword} placeholder="Min. 6 characters"
               icon={<Lock size={15} />}
               right={<button onClick={() => setShowPwd(v => !v)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#8b6344', display: 'flex' }}>{showPwd ? <EyeOff size={15} /> : <Eye size={15} />}</button>}
             />
             <InputField label="Confirm Password" type="password" value={confirmPassword} onChange={setConfirmPassword} placeholder="Re-enter password" icon={<Lock size={15} />} />
-            <PrimaryBtn onClick={handleRegister} loading={loading} disabled={!otp.trim() || !newPassword.trim() || !confirmPassword.trim()}>
+            <PrimaryBtn onClick={handleRegisterSubmit} loading={loading} disabled={!phone.trim() || !newPassword.trim() || !confirmPassword.trim()}>
               Create Account <ArrowRight size={16} />
             </PrimaryBtn>
-            <button onClick={() => { setStep('phone'); setDevOtp(''); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#8b6344', fontSize: 13, fontFamily: 'Poppins,sans-serif', display: 'flex', alignItems: 'center', gap: 4, justifyContent: 'center' }}>
-              <RefreshCw size={13} /> Resend OTP
+          </div>
+        )}
+
+        {/* Production fallback: manual OTP entry (shown only when server doesn't return OTP) */}
+        {mode === 'register' && step === 'otp' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+            <div style={{ padding: '10px 14px', borderRadius: 10, background: 'rgba(59,130,246,0.08)', border: '1px solid rgba(59,130,246,0.2)' }}>
+              <p style={{ fontSize: 13, color: '#1d4ed8', fontWeight: 600 }}>📱 OTP sent to <strong>{phone}</strong></p>
+              <p style={{ fontSize: 11, color: '#1d4ed8', opacity: 0.8, marginTop: 2 }}>Check your SMS and enter the code below.</p>
+            </div>
+            <InputField label="Enter OTP" type="text" value={otp} onChange={setOtp} placeholder="6-digit code" />
+            <PrimaryBtn onClick={handleRegister} loading={loading} disabled={!otp.trim()}>
+              Verify & Create Account <ArrowRight size={16} />
+            </PrimaryBtn>
+            <button onClick={() => { setStep('phone'); setOtp(''); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#8b6344', fontSize: 13, fontFamily: 'Poppins,sans-serif', display: 'flex', alignItems: 'center', gap: 4, justifyContent: 'center' }}>
+              <RefreshCw size={13} /> Back / Resend OTP
             </button>
           </div>
         )}
