@@ -163,19 +163,21 @@ async function notifyTelegram(
   const chatId = process.env.TELEGRAM_CHAT_ID;
   if (!token || !chatId) return;
 
+  const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
   const itemLines = order.items
-    .map((i) => `  • ${i.productName} (${i.size}) ×${i.quantity} = ₹${i.price * i.quantity}`)
+    .map((i) => `  • ${esc(i.productName)} (${esc(i.size)}) ×${i.quantity} = ₹${i.price * i.quantity}`)
     .join("\n");
 
   const text = [
-    `🛒 *New Order — ${order.id}*`, ``,
-    `👤 ${order.customer.name}`,
-    `📞 ${order.customer.phone}`,
-    order.customer.email ? `📧 ${order.customer.email}` : null,
-    `📍 ${order.customer.address}`, ``,
-    `*Items:*`, itemLines, ``,
-    `💰 *Total: ₹${order.totalAmount.toLocaleString("en-IN")}*`,
-    order.paymentId ? `✅ Paid · ${order.paymentId}` : `⏳ Payment pending`,
+    `🛒 <b>New Order — ${esc(order.id)}</b>`, ``,
+    `👤 ${esc(order.customer.name)}`,
+    `📞 ${esc(order.customer.phone)}`,
+    order.customer.email ? `📧 ${esc(order.customer.email)}` : null,
+    `📍 ${esc(order.customer.address)}`, ``,
+    `<b>Items:</b>`, itemLines, ``,
+    `💰 <b>Total: ₹${order.totalAmount.toLocaleString("en-IN")}</b>`,
+    order.paymentId ? `✅ Paid · ${esc(order.paymentId)}` : `⏳ Payment pending`,
   ]
     .filter((l) => l !== null)
     .join("\n");
@@ -184,7 +186,7 @@ async function notifyTelegram(
     const r = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ chat_id: chatId, text, parse_mode: "Markdown" }),
+      body: JSON.stringify({ chat_id: chatId, text, parse_mode: "HTML" }),
     });
     const data = (await r.json()) as { ok: boolean; description?: string };
     if (!data.ok) console.warn("[telegram] API error:", data.description);
