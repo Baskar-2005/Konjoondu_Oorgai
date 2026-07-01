@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Trash2, Plus, Minus, ShoppingCart, ArrowRight, CheckCircle2, Package, ChevronLeft } from 'lucide-react';
+import { X, Trash2, Plus, Minus, ShoppingCart, ArrowRight, CheckCircle2, Package, ChevronLeft, LogIn } from 'lucide-react';
 import { useCart } from '@/context/CartContext';
 import { useToast } from '@/hooks/use-toast';
+import { useCustomer } from '@/context/CustomerContext';
+import { useLocation } from 'wouter';
 
 interface CheckoutForm {
   name: string;
@@ -37,6 +39,8 @@ function loadRazorpayScript(): Promise<boolean> {
 function CartDrawerContent() {
   const { items, totalAmount, totalItems, isOpen, closeCart, removeItem, updateQuantity, clearCart } = useCart();
   const { toast } = useToast();
+  const { isLoggedIn, customer } = useCustomer();
+  const [, navigate] = useLocation();
   const [step, setStep] = useState<Step>('cart');
   const [form, setForm] = useState<CheckoutForm>({ name: '', phone: '', email: '', address: '' });
   const [loading, setLoading] = useState(false);
@@ -47,6 +51,17 @@ function CartDrawerContent() {
     const t = setTimeout(() => setStep('cart'), 350);
     return () => clearTimeout(t);
   }, [isOpen]);
+
+  useEffect(() => {
+    if (customer) {
+      setForm(prev => ({
+        ...prev,
+        name: customer.name || prev.name,
+        phone: customer.phone || prev.phone,
+        email: customer.email || prev.email,
+      }));
+    }
+  }, [customer]);
 
   useEffect(() => {
     if (isOpen) {
@@ -450,7 +465,15 @@ function CartDrawerContent() {
                       </div>
                     )}
                     <button
-                      onClick={() => setStep('checkout')}
+                      onClick={() => {
+                        if (!isLoggedIn) {
+                          toast({ title: 'Please log in to continue', description: 'You need to be logged in to place an order.', variant: 'destructive' });
+                          closeCart();
+                          navigate('/account');
+                          return;
+                        }
+                        setStep('checkout');
+                      }}
                       disabled={items.length === 0}
                       style={{
                         width: '100%', padding: '14px', borderRadius: 16, border: 'none',
