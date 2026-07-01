@@ -92,21 +92,21 @@ export default function AuthPage({ onSuccess }: { onSuccess?: () => void }) {
   const [resendCooldown, setResendCooldown] = useState(0);
 
   const confirmationRef = useRef<ConfirmationResult | null>(null);
-  const recaptchaRef = useRef<RecaptchaVerifier | null>(null);
 
-  // Initialise RecaptchaVerifier ONCE on mount — never recreate mid-flow.
-  // Creating/clearing it inside sendOtp caused the reCAPTCHA script to access
-  // a null DOM element in its async callbacks, crashing the app.
+  // Store verifier on window so it survives Vite HMR cycles.
+  // When HMR unmounts+remounts the component, the cleanup would clear the
+  // verifier and its pending async callbacks would crash on a null DOM element.
+  // Keeping it on window means the same verifier instance persists across reloads.
   useEffect(() => {
-    const verifier = new RecaptchaVerifier(firebaseAuth, 'recaptcha-container', {
-      size: 'invisible',
-    });
-    recaptchaRef.current = verifier;
-    verifier.render().catch(() => {}); // pre-render silently
-    return () => {
-      try { verifier.clear(); } catch { /* ignore */ }
-      recaptchaRef.current = null;
-    };
+    const w = window as Window & { recaptchaVerifier?: RecaptchaVerifier };
+    if (!w.recaptchaVerifier) {
+      const verifier = new RecaptchaVerifier(firebaseAuth, 'recaptcha-container', {
+        size: 'invisible',
+      });
+      w.recaptchaVerifier = verifier;
+      verifier.render().catch(() => {}); // pre-render silently
+    }
+    // No cleanup — intentionally let it persist across HMR remounts.
   }, []);
 
   // Countdown timer for resend cooldown
@@ -156,7 +156,8 @@ export default function AuthPage({ onSuccess }: { onSuccess?: () => void }) {
       } catch { setError('Network error. Please try again.'); return false; }
     }
 
-    const verifier = recaptchaRef.current;
+    const w = window as Window & { recaptchaVerifier?: RecaptchaVerifier };
+    const verifier = w.recaptchaVerifier;
     if (!verifier) { setError('reCAPTCHA not ready. Please refresh and try again.'); return false; }
 
     try {
