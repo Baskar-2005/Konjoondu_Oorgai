@@ -6,10 +6,22 @@ install = "corepack enable && corepack prepare pnpm@10.15.0 --activate && pnpm i
 [build.environment]
   NODE_VERSION = "20"
   PNPM_VERSION = "10.15.0"
-  # VITE_API_URL — set this in Netlify dashboard (Site settings → Environment variables)
-  # Value: https://<your-render-service>.onrender.com/api
 
+# ── API proxy ────────────────────────────────────────────────────────────────
+# All /ko-api/* requests from the frontend are forwarded to the Render backend.
+# Replace ko-api.onrender.com with your actual Render service domain if different.
+# This proxy runs at the CDN edge so no VITE_API_URL build variable is needed.
+[[redirects]]
+  from   = "/ko-api/*"
+  to     = "https://ko-api.onrender.com/api/:splat"
+  status = 200
+  force  = true
+
+  [redirects.headers]
+    X-Forwarded-Host = "ko-api.onrender.com"
+
+# ── SPA fallback ─────────────────────────────────────────────────────────────
 [[redirects]]
   from = "/*"
-  to = "/index.html"
+  to   = "/index.html"
   status = 200
