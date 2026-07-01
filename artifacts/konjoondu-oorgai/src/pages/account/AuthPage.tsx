@@ -94,6 +94,21 @@ export default function AuthPage({ onSuccess }: { onSuccess?: () => void }) {
   const confirmationRef = useRef<ConfirmationResult | null>(null);
   const recaptchaRef = useRef<RecaptchaVerifier | null>(null);
 
+  // Initialise RecaptchaVerifier ONCE on mount — never recreate mid-flow.
+  // Creating/clearing it inside sendOtp caused the reCAPTCHA script to access
+  // a null DOM element in its async callbacks, crashing the app.
+  useEffect(() => {
+    const verifier = new RecaptchaVerifier(firebaseAuth, 'recaptcha-container', {
+      size: 'invisible',
+    });
+    recaptchaRef.current = verifier;
+    verifier.render().catch(() => {}); // pre-render silently
+    return () => {
+      try { verifier.clear(); } catch { /* ignore */ }
+      recaptchaRef.current = null;
+    };
+  }, []);
+
   // Countdown timer for resend cooldown
   useEffect(() => {
     if (resendCooldown <= 0) return;
@@ -101,15 +116,7 @@ export default function AuthPage({ onSuccess }: { onSuccess?: () => void }) {
     return () => clearTimeout(t);
   }, [resendCooldown]);
 
-  function clearRecaptcha() {
-    if (recaptchaRef.current) {
-      try { recaptchaRef.current.clear(); } catch { /* ignore */ }
-      recaptchaRef.current = null;
-    }
-  }
-
   function reset() {
-    clearRecaptcha();
     confirmationRef.current = null;
     setPhone(''); setPassword(''); setOtp(''); setNewPassword(''); setConfirmPassword('');
     setError(''); setStep('phone'); setLoading(false); setResendCooldown(0);
@@ -135,7 +142,6 @@ export default function AuthPage({ onSuccess }: { onSuccess?: () => void }) {
 
   // ── SEND OTP (shared by register + forgot) ─────────────────────────────────
   async function sendOtp(forMode: 'register' | 'forgot'): Promise<boolean> {
-    clearRecaptcha();
     const e164 = normalisePhone(phone);
 
     // For forgot-password, first verify the account exists
@@ -150,15 +156,15 @@ export default function AuthPage({ onSuccess }: { onSuccess?: () => void }) {
       } catch { setError('Network error. Please try again.'); return false; }
     }
 
+    const verifier = recaptchaRef.current;
+    if (!verifier) { setError('reCAPTCHA not ready. Please refresh and try again.'); return false; }
+
     try {
-      const verifier = new RecaptchaVerifier(firebaseAuth, 'recaptcha-container', { size: 'invisible' });
-      recaptchaRef.current = verifier;
       const result = await signInWithPhoneNumber(firebaseAuth, e164, verifier);
       confirmationRef.current = result;
       setResendCooldown(30);
       return true;
     } catch (err: unknown) {
-      clearRecaptcha();
       const msg = (err as { message?: string }).message ?? '';
       if (msg.includes('invalid-phone-number')) {
         setError('Invalid phone number. Include country code, e.g. +91 98765 43210');
@@ -349,7 +355,7 @@ export default function AuthPage({ onSuccess }: { onSuccess?: () => void }) {
               Verify & Create Account <CheckCircle2 size={16} />
             </PrimaryBtn>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <button onClick={() => { setStep('phone'); setOtp(''); clearRecaptcha(); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#8b6344', fontSize: 13, fontFamily: 'Poppins,sans-serif', display: 'flex', alignItems: 'center', gap: 4 }}>
+              <button onClick={() => { setStep('phone'); setOtp(''); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#8b6344', fontSize: 13, fontFamily: 'Poppins,sans-serif', display: 'flex', alignItems: 'center', gap: 4 }}>
                 ← Change number
               </button>
               <button onClick={handleResendOtp} disabled={resendCooldown > 0 || loading}
@@ -390,7 +396,7 @@ export default function AuthPage({ onSuccess }: { onSuccess?: () => void }) {
               Reset Password <CheckCircle2 size={16} />
             </PrimaryBtn>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <button onClick={() => { setStep('phone'); setOtp(''); clearRecaptcha(); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#8b6344', fontSize: 13, fontFamily: 'Poppins,sans-serif' }}>
+              <button onClick={() => { setStep('phone'); setOtp(''); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#8b6344', fontSize: 13, fontFamily: 'Poppins,sans-serif' }}>
                 ← Change number
               </button>
               <button onClick={handleResendOtp} disabled={resendCooldown > 0 || loading}
