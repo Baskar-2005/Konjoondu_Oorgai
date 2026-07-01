@@ -74,9 +74,9 @@ function CartDrawerContent() {
       }
 
       // Step 2: create Razorpay order on backend
-      // TEST MODE: charge ₹0.1 so you can verify the full payment flow without real charges.
+      // TEST MODE: charge ₹1 (Razorpay minimum) to verify the full payment flow.
       // Remove this override (use totalAmount) before going live.
-      const TEST_AMOUNT = 0.1;
+      const TEST_AMOUNT = 1;
       const createRes = await fetch(`${API_BASE}/payments/create-order`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -327,7 +327,7 @@ function CartDrawerContent() {
                   }}>
                     <span style={{ fontSize: 14 }}>🧪</span>
                     <p style={{ fontSize: 11, color: '#b45309', lineHeight: 1.4 }}>
-                      <strong>Test Mode:</strong> Only ₹0.1 will be charged. Real order total shown for reference.
+                      <strong>Test Mode:</strong> Only ₹1 will be charged. Real order total shown for reference.
                     </p>
                   </div>
 
@@ -392,7 +392,7 @@ function CartDrawerContent() {
                       </div>
                       <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: '#b45309', marginTop: 4, fontWeight: 600 }}>
                         <span>🧪 Test charge</span>
-                        <span>₹0.10</span>
+                        <span>₹1.00</span>
                       </div>
                     </div>
                   </div>
@@ -478,7 +478,7 @@ function CartDrawerContent() {
                       display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
                       boxShadow: '0 6px 20px rgba(181,58,46,0.3)', fontFamily: 'inherit',
                     }}>
-                    {loading ? 'Opening Payment…' : `Pay ₹0.10 via Razorpay (Test)`}
+                    {loading ? 'Opening Payment…' : `Pay ₹1 via Razorpay (Test)`}
                     {!loading && <span style={{ fontSize: 16 }}>🔒</span>}
                   </button>
                 )}
