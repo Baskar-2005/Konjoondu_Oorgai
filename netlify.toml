@@ -13,12 +13,12 @@ install = "corepack enable && corepack prepare pnpm@10.15.0 --activate && pnpm i
 # This proxy runs at the CDN edge so no VITE_API_URL build variable is needed.
 [[redirects]]
   from   = "/ko-api/*"
-  to     = "https://ko-api.onrender.com/api/:splat"
+  to     = "https://konjoondu-oorgai.onrender.com/api/:splat"
   status = 200
   force  = true
 
   [redirects.headers]
-    X-Forwarded-Host = "ko-api.onrender.com"
+    X-Forwarded-Host = "konjoondu-oorgai.onrender.com"
 
 # ── SPA fallback ─────────────────────────────────────────────────────────────
 [[redirects]]
