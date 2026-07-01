@@ -62,7 +62,7 @@ export default defineConfig({
     },
     proxy: {
       '/ko-api': {
-        target: 'http://localhost:3000',
+        target: `http://localhost:${process.env.API_PORT ?? '8080'}`,
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/ko-api/, '/api'),
       },
