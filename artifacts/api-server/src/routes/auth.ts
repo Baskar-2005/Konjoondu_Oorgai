@@ -1,8 +1,10 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import { randomBytes, pbkdf2Sync } from "crypto";
 import { randomUUID } from "crypto";
+import { getAuth as getAdminAuth } from "firebase-admin/auth";
 import { customersCol, sessionsCol, notificationsCol } from "../lib/firestoreDb";
 import type { Customer } from "../lib/firestoreDb";
+import { fdb } from "../lib/firebase";
 
 const router: IRouter = Router();
 
@@ -12,17 +14,13 @@ function hashPassword(password: string, salt: string): string {
   return pbkdf2Sync(password, salt, 12000, 64, "sha512").toString("hex");
 }
 
-function generateOtp(): string {
-  return String(Math.floor(100000 + Math.random() * 900000));
-}
-
 function generateToken(): string {
   return randomBytes(48).toString("hex");
 }
 
 async function createSession(customerId: string): Promise<string> {
   const token = generateToken();
-  const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 30 days
+  const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
   await sessionsCol.create(customerId, token, expiresAt);
   return token;
 }
@@ -52,26 +50,57 @@ function safeCustomer(c: Customer) {
   return safe;
 }
 
-// ─── POST /auth/send-otp ──────────────────────────────────────────────────────
-router.post("/auth/send-otp", async (req, res) => {
-  const { phone } = req.body as { phone?: string };
-  if (!phone?.trim()) {
-    res.status(400).json({ success: false, message: "Phone number is required." });
+/**
+ * Verify a Firebase Phone Auth ID token and return the verified phone number.
+ * Returns null if the token is invalid.
+ */
+async function verifyFirebasePhoneToken(idToken: string): Promise<string | null> {
+  try {
+    // Access fdb proxy to ensure Firebase Admin is initialised before calling getAdminAuth()
+    void (fdb as unknown as { _dummy?: unknown })._dummy;
+    const decoded = await getAdminAuth().verifyIdToken(idToken);
+    return decoded.phone_number ?? null;
+  } catch {
+    return null;
+  }
+}
+
+// ─── POST /auth/register ──────────────────────────────────────────────────────
+// Accepts a Firebase Phone Auth ID token (phone already verified by Firebase)
+// plus the password the user wants to set.
+router.post("/auth/register", async (req, res) => {
+  const { firebaseToken, password } = req.body as {
+    firebaseToken?: string;
+    password?: string;
+  };
+
+  if (!firebaseToken?.trim() || !password?.trim()) {
+    res.status(400).json({ success: false, message: "Firebase token and password are required." });
     return;
   }
-  const normalised = phone.trim().replace(/\s+/g, "");
-  const otp = generateOtp();
-  const otpExpiry = new Date(Date.now() + 10 * 60 * 1000);
+  if (password.length < 6) {
+    res.status(400).json({ success: false, message: "Password must be at least 6 characters." });
+    return;
+  }
 
-  const existing = await customersCol.findByPhone(normalised);
+  const phone = await verifyFirebasePhoneToken(firebaseToken);
+  if (!phone) {
+    res.status(401).json({ success: false, message: "Phone verification failed. Please try again." });
+    return;
+  }
 
-  if (existing) {
-    await customersCol.update(existing.id, { pendingOtp: otp, otpExpiry });
-  } else {
+  const existing = await customersCol.findByPhone(phone);
+  if (existing?.isVerified && existing.passwordHash) {
+    res.status(400).json({ success: false, message: "An account with this phone already exists. Please log in." });
+    return;
+  }
+
+  let customer = existing;
+  if (!customer) {
     const id = "CUST-" + randomUUID().slice(0, 8).toUpperCase();
     const salt = randomBytes(32).toString("hex");
-    await customersCol.create(id, {
-      phone: normalised,
+    customer = await customersCol.create(id, {
+      phone,
       email: "",
       name: "",
       dob: "",
@@ -82,59 +111,17 @@ router.post("/auth/send-otp", async (req, res) => {
       rewardPoints: 0,
       isVerified: false,
       isFirstLogin: true,
-      pendingOtp: otp,
-      otpExpiry,
+      pendingOtp: "",
+      otpExpiry: null,
       communicationPrefs: { email: true, sms: true, whatsapp: true },
     });
   }
 
-  const isDev = process.env.NODE_ENV !== "production";
-  res
-    .json({ success: true, message: "OTP sent.", ...(isDev ? { otp } : {}), expiresIn: 600 });
-});
-
-// ─── POST /auth/register ──────────────────────────────────────────────────────
-router.post("/auth/register", async (req, res) => {
-  const { phone, password, otp } = req.body as {
-    phone?: string;
-    password?: string;
-    otp?: string;
-  };
-
-  if (!phone?.trim() || !password?.trim() || !otp?.trim()) {
-    res.status(400).json({ success: false, message: "Phone, password and OTP are required." });
-    return;
-  }
-  if (password.length < 6) {
-    res.status(400).json({ success: false, message: "Password must be at least 6 characters." });
-    return;
-  }
-
-  const normalised = phone.trim().replace(/\s+/g, "");
-  const customer = await customersCol.findByPhone(normalised);
-
-  if (!customer) {
-    res.status(400).json({ success: false, message: "Please request an OTP first." });
-    return;
-  }
-  if (customer.isVerified && customer.passwordHash) {
-    res
-      .status(400)
-      .json({ success: false, message: "An account with this phone already exists. Please log in." });
-    return;
-  }
-  if (customer.pendingOtp !== otp.trim()) {
-    res.status(400).json({ success: false, message: "Incorrect OTP." });
-    return;
-  }
-  if (!customer.otpExpiry || new Date() > customer.otpExpiry) {
-    res.status(400).json({ success: false, message: "OTP has expired. Please request a new one." });
-    return;
-  }
-
-  const passwordHash = hashPassword(password, customer.salt);
+  const salt = customer.salt || randomBytes(32).toString("hex");
+  const passwordHash = hashPassword(password, salt);
   const updated = await customersCol.update(customer.id, {
     passwordHash,
+    salt,
     isVerified: true,
     isFirstLogin: true,
     pendingOtp: "",
@@ -192,6 +179,8 @@ router.post("/auth/logout", async (req, res) => {
 });
 
 // ─── POST /auth/forgot-password ───────────────────────────────────────────────
+// No longer sends an OTP — Firebase handles that on the frontend.
+// This endpoint just confirms the phone exists.
 router.post("/auth/forgot-password", async (req, res) => {
   const { phone } = req.body as { phone?: string };
   if (!phone?.trim()) {
@@ -201,58 +190,43 @@ router.post("/auth/forgot-password", async (req, res) => {
   const normalised = phone.trim().replace(/\s+/g, "");
   const customer = await customersCol.findByPhone(normalised);
   if (!customer || !customer.isVerified) {
-    res
-      .status(404)
-      .json({ success: false, message: "No verified account found for this phone." });
+    res.status(404).json({ success: false, message: "No verified account found for this phone." });
     return;
   }
-  const otp = generateOtp();
-  const otpExpiry = new Date(Date.now() + 10 * 60 * 1000);
-  await customersCol.update(customer.id, { pendingOtp: otp, otpExpiry });
-  const isDev = process.env.NODE_ENV !== "production";
-  res
-    .json({ success: true, message: "OTP sent.", ...(isDev ? { otp } : {}), expiresIn: 600 });
+  res.json({ success: true, message: "Phone verified. Proceed with OTP." });
 });
 
 // ─── POST /auth/reset-password ────────────────────────────────────────────────
+// Accepts a Firebase Phone Auth ID token (OTP already verified by Firebase)
+// plus the new password.
 router.post("/auth/reset-password", async (req, res) => {
-  const { phone, otp, newPassword } = req.body as {
-    phone?: string;
-    otp?: string;
+  const { firebaseToken, newPassword } = req.body as {
+    firebaseToken?: string;
     newPassword?: string;
   };
-  if (!phone?.trim() || !otp?.trim() || !newPassword?.trim()) {
-    res
-      .status(400)
-      .json({ success: false, message: "Phone, OTP and new password are required." });
+  if (!firebaseToken?.trim() || !newPassword?.trim()) {
+    res.status(400).json({ success: false, message: "Firebase token and new password are required." });
     return;
   }
   if (newPassword.length < 6) {
-    res
-      .status(400)
-      .json({ success: false, message: "Password must be at least 6 characters." });
+    res.status(400).json({ success: false, message: "Password must be at least 6 characters." });
     return;
   }
-  const normalised = phone.trim().replace(/\s+/g, "");
-  const customer = await customersCol.findByPhone(normalised);
-  if (!customer) {
-    res.status(404).json({ success: false, message: "Account not found." });
+
+  const phone = await verifyFirebasePhoneToken(firebaseToken);
+  if (!phone) {
+    res.status(401).json({ success: false, message: "Phone verification failed. Please try again." });
     return;
   }
-  if (customer.pendingOtp !== otp.trim()) {
-    res.status(400).json({ success: false, message: "Incorrect OTP." });
+
+  const customer = await customersCol.findByPhone(phone);
+  if (!customer || !customer.isVerified) {
+    res.status(404).json({ success: false, message: "No verified account found for this phone." });
     return;
   }
-  if (!customer.otpExpiry || new Date() > customer.otpExpiry) {
-    res.status(400).json({ success: false, message: "OTP has expired." });
-    return;
-  }
+
   const passwordHash = hashPassword(newPassword, customer.salt);
-  const updated = await customersCol.update(customer.id, {
-    passwordHash,
-    pendingOtp: "",
-    otpExpiry: null,
-  });
+  const updated = await customersCol.update(customer.id, { passwordHash });
   await sessionsCol.deleteByCustomerId(customer.id);
   const token = await createSession(customer.id);
   res.json({ success: true, token, customer: safeCustomer(updated) });

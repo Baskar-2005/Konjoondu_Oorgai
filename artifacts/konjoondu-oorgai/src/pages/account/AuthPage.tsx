@@ -1,13 +1,15 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Phone, Lock, Eye, EyeOff, ArrowRight, AlertCircle, CheckCircle2, RefreshCw } from 'lucide-react';
+import { signInWithPhoneNumber, RecaptchaVerifier, type ConfirmationResult } from 'firebase/auth';
+import { firebaseAuth } from '@/lib/firebase';
 import { useCustomer } from '@/context/CustomerContext';
 
 const PRIMARY = 'hsl(4,60%,44%)';
 const BG = 'linear-gradient(135deg, #3d1a0f 0%, #5c2518 50%, #3d1a0f 100%)';
 
 type Mode = 'login' | 'register' | 'forgot';
-type Step = 'phone' | 'otp' | 'password' | 'done';
+type Step = 'phone' | 'otp' | 'done';
 
 interface InputFieldProps {
   label: string; type: string; value: string;
@@ -62,9 +64,16 @@ function PrimaryBtn({ onClick, disabled, loading, children }: { onClick?: () => 
         fontFamily: 'Poppins,sans-serif', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
         boxShadow: disabled || loading ? 'none' : '0 6px 20px rgba(181,58,46,0.3)',
       }}>
-      {loading ? <><span className="spin-border" />Processing…</> : children}
+      {loading ? <><span className="spin-border" />Sending OTP…</> : children}
     </motion.button>
   );
+}
+
+/** Normalise phone to E.164 (+91XXXXXXXXXX). Adds +91 if no country code. */
+function normalisePhone(raw: string): string {
+  const digits = raw.replace(/\s+/g, '').replace(/[^\d+]/g, '');
+  if (digits.startsWith('+')) return digits;
+  return '+91' + digits;
 }
 
 export default function AuthPage({ onSuccess }: { onSuccess?: () => void }) {
@@ -72,127 +81,180 @@ export default function AuthPage({ onSuccess }: { onSuccess?: () => void }) {
   const [mode, setMode] = useState<Mode>('login');
   const [step, setStep] = useState<Step>('phone');
 
-  // Shared fields
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [showPwd, setShowPwd] = useState(false);
   const [otp, setOtp] = useState('');
-  const [devOtp, setDevOtp] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [resendCooldown, setResendCooldown] = useState(0);
+
+  const confirmationRef = useRef<ConfirmationResult | null>(null);
+  const recaptchaRef = useRef<RecaptchaVerifier | null>(null);
+
+  // Countdown timer for resend cooldown
+  useEffect(() => {
+    if (resendCooldown <= 0) return;
+    const t = setTimeout(() => setResendCooldown(c => c - 1), 1000);
+    return () => clearTimeout(t);
+  }, [resendCooldown]);
+
+  function clearRecaptcha() {
+    if (recaptchaRef.current) {
+      try { recaptchaRef.current.clear(); } catch { /* ignore */ }
+      recaptchaRef.current = null;
+    }
+  }
 
   function reset() {
-    setPhone(''); setPassword(''); setOtp(''); setDevOtp(''); setNewPassword(''); setConfirmPassword('');
-    setError(''); setStep('phone'); setLoading(false);
+    clearRecaptcha();
+    confirmationRef.current = null;
+    setPhone(''); setPassword(''); setOtp(''); setNewPassword(''); setConfirmPassword('');
+    setError(''); setStep('phone'); setLoading(false); setResendCooldown(0);
   }
 
   function switchMode(m: Mode) { reset(); setMode(m); }
 
+  // ── LOGIN ──────────────────────────────────────────────────────────────────
   async function handleLogin() {
     if (!phone.trim() || !password.trim()) { setError('Phone and password are required.'); return; }
     setLoading(true); setError('');
     try {
       const res = await fetch(`${apiBase}/auth/login`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone: phone.trim(), password }),
+        body: JSON.stringify({ phone: normalisePhone(phone), password }),
       });
       const data = await res.json();
       if (data.success) { login(data.token, data.customer); onSuccess?.(); }
       else setError(data.message || 'Login failed.');
-    } catch { setError('Network error. Make sure the server is running.'); }
+    } catch { setError('Network error. Please try again.'); }
     finally { setLoading(false); }
   }
 
-  // Single-step register: send-otp then immediately register if OTP comes back (dev).
-  // Falls back to manual OTP entry if the server doesn't return it (production).
-  async function handleRegisterSubmit() {
+  // ── SEND OTP (shared by register + forgot) ─────────────────────────────────
+  async function sendOtp(forMode: 'register' | 'forgot'): Promise<boolean> {
+    clearRecaptcha();
+    const e164 = normalisePhone(phone);
+
+    // For forgot-password, first verify the account exists
+    if (forMode === 'forgot') {
+      try {
+        const check = await fetch(`${apiBase}/auth/forgot-password`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ phone: e164 }),
+        });
+        const checkData = await check.json();
+        if (!checkData.success) { setError(checkData.message || 'No account found.'); return false; }
+      } catch { setError('Network error. Please try again.'); return false; }
+    }
+
+    try {
+      const verifier = new RecaptchaVerifier(firebaseAuth, 'recaptcha-container', { size: 'invisible' });
+      recaptchaRef.current = verifier;
+      const result = await signInWithPhoneNumber(firebaseAuth, e164, verifier);
+      confirmationRef.current = result;
+      setResendCooldown(30);
+      return true;
+    } catch (err: unknown) {
+      clearRecaptcha();
+      const msg = (err as { message?: string }).message ?? '';
+      if (msg.includes('invalid-phone-number')) {
+        setError('Invalid phone number. Include country code, e.g. +91 98765 43210');
+      } else if (msg.includes('too-many-requests')) {
+        setError('Too many attempts. Please wait a few minutes and try again.');
+      } else if (msg.includes('auth/quota-exceeded')) {
+        setError('SMS quota exceeded for today. Please try again tomorrow.');
+      } else {
+        setError('Failed to send OTP. ' + msg);
+      }
+      return false;
+    }
+  }
+
+  // ── REGISTER: step 1 — send OTP ───────────────────────────────────────────
+  async function handleRegisterSendOtp() {
     if (!phone.trim()) { setError('Phone number is required.'); return; }
     if (!newPassword.trim()) { setError('Password is required.'); return; }
     if (newPassword !== confirmPassword) { setError('Passwords do not match.'); return; }
     if (newPassword.length < 6) { setError('Password must be at least 6 characters.'); return; }
     setLoading(true); setError('');
-    try {
-      // Step 1: request OTP
-      const otpRes = await fetch(`${apiBase}/auth/send-otp`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone: phone.trim() }),
-      });
-      const otpData = await otpRes.json();
-      if (!otpData.success) { setError(otpData.message || 'Failed to send OTP.'); return; }
-
-      const returnedOtp: string | undefined = otpData.otp;
-
-      if (returnedOtp) {
-        // Dev mode: OTP in response — register immediately, no manual entry needed
-        const regRes = await fetch(`${apiBase}/auth/register`, {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ phone: phone.trim(), password: newPassword, otp: returnedOtp }),
-        });
-        const regData = await regRes.json();
-        if (regData.success) { login(regData.token, regData.customer); onSuccess?.(); }
-        else setError(regData.message || 'Registration failed.');
-      } else {
-        // Production: OTP sent via SMS, show manual entry step
-        setDevOtp('');
-        setStep('otp');
-      }
-    } catch { setError('Network error. Make sure the server is running.'); }
-    finally { setLoading(false); }
+    const ok = await sendOtp('register');
+    setLoading(false);
+    if (ok) setStep('otp');
   }
 
-  async function handleRegister() {
-    // Called only in production fallback (manual OTP entry step)
-    if (!otp.trim() || !newPassword.trim()) { setError('OTP and password are required.'); return; }
-    if (newPassword !== confirmPassword) { setError('Passwords do not match.'); return; }
-    if (newPassword.length < 6) { setError('Password must be at least 6 characters.'); return; }
+  // ── REGISTER: step 2 — verify OTP → register ──────────────────────────────
+  async function handleRegisterVerify() {
+    if (!otp.trim()) { setError('Enter the 6-digit OTP.'); return; }
     setLoading(true); setError('');
     try {
+      const cred = await confirmationRef.current!.confirm(otp.trim());
+      const firebaseToken = await cred.user.getIdToken();
       const res = await fetch(`${apiBase}/auth/register`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone: phone.trim(), password: newPassword, otp: otp.trim() }),
+        body: JSON.stringify({ firebaseToken, password: newPassword }),
       });
       const data = await res.json();
       if (data.success) { login(data.token, data.customer); onSuccess?.(); }
       else setError(data.message || 'Registration failed.');
-    } catch { setError('Network error.'); }
-    finally { setLoading(false); }
+    } catch (err: unknown) {
+      const msg = (err as { message?: string }).message ?? '';
+      if (msg.includes('invalid-verification-code')) setError('Incorrect OTP. Please check and try again.');
+      else if (msg.includes('code-expired')) setError('OTP expired. Please resend.');
+      else setError('Verification failed. ' + msg);
+    } finally { setLoading(false); }
   }
 
+  // ── FORGOT: step 1 — send OTP ─────────────────────────────────────────────
   async function handleForgotSendOtp() {
     if (!phone.trim()) { setError('Phone number is required.'); return; }
     setLoading(true); setError('');
-    try {
-      const res = await fetch(`${apiBase}/auth/forgot-password`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone: phone.trim() }),
-      });
-      const data = await res.json();
-      if (data.success) { setDevOtp(data.otp || ''); setStep('otp'); }
-      else setError(data.message || 'Failed.');
-    } catch { setError('Network error.'); }
-    finally { setLoading(false); }
+    const ok = await sendOtp('forgot');
+    setLoading(false);
+    if (ok) setStep('otp');
   }
 
+  // ── FORGOT: step 2 — verify OTP → reset password ─────────────────────────
   async function handleResetPassword() {
-    if (!otp.trim() || !newPassword.trim()) { setError('OTP and new password required.'); return; }
+    if (!otp.trim()) { setError('Enter the 6-digit OTP.'); return; }
+    if (!newPassword.trim()) { setError('New password is required.'); return; }
     if (newPassword !== confirmPassword) { setError('Passwords do not match.'); return; }
+    if (newPassword.length < 6) { setError('Password must be at least 6 characters.'); return; }
     setLoading(true); setError('');
     try {
+      const cred = await confirmationRef.current!.confirm(otp.trim());
+      const firebaseToken = await cred.user.getIdToken();
       const res = await fetch(`${apiBase}/auth/reset-password`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone: phone.trim(), otp: otp.trim(), newPassword }),
+        body: JSON.stringify({ firebaseToken, newPassword }),
       });
       const data = await res.json();
       if (data.success) { login(data.token, data.customer); onSuccess?.(); }
       else setError(data.message || 'Reset failed.');
-    } catch { setError('Network error.'); }
-    finally { setLoading(false); }
+    } catch (err: unknown) {
+      const msg = (err as { message?: string }).message ?? '';
+      if (msg.includes('invalid-verification-code')) setError('Incorrect OTP. Please check and try again.');
+      else if (msg.includes('code-expired')) setError('OTP expired. Please resend.');
+      else setError('Verification failed. ' + msg);
+    } finally { setLoading(false); }
+  }
+
+  async function handleResendOtp() {
+    if (resendCooldown > 0) return;
+    setOtp(''); setError('');
+    setLoading(true);
+    const ok = await sendOtp(mode === 'forgot' ? 'forgot' : 'register');
+    setLoading(false);
+    if (!ok) setStep('phone');
   }
 
   return (
     <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: BG, padding: 20, position: 'relative', overflow: 'hidden' }}>
+      {/* Invisible reCAPTCHA container — Firebase renders here */}
+      <div id="recaptcha-container" />
+
       {/* Ambient blobs */}
       <div style={{ position: 'absolute', top: '15%', left: '8%', width: 320, height: 320, borderRadius: '50%', background: 'rgba(181,58,46,0.08)', filter: 'blur(80px)', pointerEvents: 'none' }} />
       <div style={{ position: 'absolute', bottom: '10%', right: '5%', width: 400, height: 400, borderRadius: '50%', background: 'rgba(139,94,60,0.06)', filter: 'blur(100px)', pointerEvents: 'none' }} />
@@ -210,14 +272,16 @@ export default function AuthPage({ onSuccess }: { onSuccess?: () => void }) {
             🥒
           </div>
           <h1 style={{ fontSize: 22, fontWeight: 900, color: '#1a0f08', letterSpacing: '-0.02em', marginBottom: 4 }}>
-            {mode === 'login' ? 'Welcome Back' : mode === 'register' ? 'Create Account' : 'Reset Password'}
+            {mode === 'login' ? 'Welcome Back' : mode === 'register' ? (step === 'otp' ? 'Verify Your Number' : 'Create Account') : (step === 'otp' ? 'Enter Reset OTP' : 'Reset Password')}
           </h1>
           <p style={{ fontSize: 13, color: '#8b6344' }}>
-            {mode === 'login' ? 'Sign in to your Konjoondu Oorgai account' : mode === 'register' ? 'Join us for a premium pickle experience' : 'Recover access to your account'}
+            {mode === 'login' ? 'Sign in to your Konjoondu Oorgai account'
+              : mode === 'register' ? (step === 'otp' ? `OTP sent to ${normalisePhone(phone)}` : 'Join us for a premium pickle experience')
+              : (step === 'otp' ? `OTP sent to ${normalisePhone(phone)}` : 'Recover access to your account')}
           </p>
         </div>
 
-        {/* Mode tabs (login/register) */}
+        {/* Mode tabs */}
         {mode !== 'forgot' && step === 'phone' && (
           <div style={{ display: 'flex', background: 'rgba(181,58,46,0.06)', borderRadius: 12, padding: 3, marginBottom: 24 }}>
             {(['login', 'register'] as Mode[]).map(m => (
@@ -242,18 +306,7 @@ export default function AuthPage({ onSuccess }: { onSuccess?: () => void }) {
           )}
         </AnimatePresence>
 
-        {/* Dev OTP hint */}
-        <AnimatePresence>
-          {devOtp && (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-              style={{ padding: '10px 14px', borderRadius: 10, background: 'rgba(34,197,94,0.08)', border: '1px solid rgba(34,197,94,0.25)', marginBottom: 16 }}>
-              <p style={{ fontSize: 12, color: '#15803d', fontWeight: 600 }}>📱 OTP (dev mode): <strong style={{ fontSize: 16, letterSpacing: 4 }}>{devOtp}</strong></p>
-              <p style={{ fontSize: 11, color: '#15803d', opacity: 0.8 }}>In production, this will be sent via SMS.</p>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        {/* LOGIN FORM */}
+        {/* ── LOGIN ── */}
         {mode === 'login' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
             <InputField label="Phone Number" type="tel" value={phone} onChange={setPhone} placeholder="+91 98765 43210" icon={<Phone size={15} />} />
@@ -272,7 +325,7 @@ export default function AuthPage({ onSuccess }: { onSuccess?: () => void }) {
           </div>
         )}
 
-        {/* REGISTER FORM — single step; OTP is handled automatically in dev */}
+        {/* ── REGISTER: step 1 — phone + password ── */}
         {mode === 'register' && step === 'phone' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
             <InputField label="Phone Number" type="tel" value={phone} onChange={setPhone} placeholder="+91 98765 43210" icon={<Phone size={15} />} />
@@ -281,53 +334,73 @@ export default function AuthPage({ onSuccess }: { onSuccess?: () => void }) {
               right={<button onClick={() => setShowPwd(v => !v)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#8b6344', display: 'flex' }}>{showPwd ? <EyeOff size={15} /> : <Eye size={15} />}</button>}
             />
             <InputField label="Confirm Password" type="password" value={confirmPassword} onChange={setConfirmPassword} placeholder="Re-enter password" icon={<Lock size={15} />} />
-            <PrimaryBtn onClick={handleRegisterSubmit} loading={loading} disabled={!phone.trim() || !newPassword.trim() || !confirmPassword.trim()}>
-              Create Account <ArrowRight size={16} />
+            <PrimaryBtn onClick={handleRegisterSendOtp} loading={loading} disabled={!phone.trim() || !newPassword.trim() || !confirmPassword.trim()}>
+              Send OTP <ArrowRight size={16} />
             </PrimaryBtn>
           </div>
         )}
 
-        {/* Production fallback: manual OTP entry (shown only when server doesn't return OTP) */}
+        {/* ── REGISTER: step 2 — OTP entry ── */}
         {mode === 'register' && step === 'otp' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
             <div style={{ padding: '10px 14px', borderRadius: 10, background: 'rgba(59,130,246,0.08)', border: '1px solid rgba(59,130,246,0.2)' }}>
-              <p style={{ fontSize: 13, color: '#1d4ed8', fontWeight: 600 }}>📱 OTP sent to <strong>{phone}</strong></p>
-              <p style={{ fontSize: 11, color: '#1d4ed8', opacity: 0.8, marginTop: 2 }}>Check your SMS and enter the code below.</p>
+              <p style={{ fontSize: 13, color: '#1d4ed8', fontWeight: 600 }}>📱 OTP sent via SMS</p>
+              <p style={{ fontSize: 11, color: '#1d4ed8', opacity: 0.8, marginTop: 2 }}>Enter the 6-digit code sent to your number.</p>
             </div>
             <InputField label="Enter OTP" type="text" value={otp} onChange={setOtp} placeholder="6-digit code" />
-            <PrimaryBtn onClick={handleRegister} loading={loading} disabled={!otp.trim()}>
-              Verify & Create Account <ArrowRight size={16} />
+            <PrimaryBtn onClick={handleRegisterVerify} loading={loading} disabled={otp.trim().length < 6}>
+              Verify & Create Account <CheckCircle2 size={16} />
             </PrimaryBtn>
-            <button onClick={() => { setStep('phone'); setOtp(''); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#8b6344', fontSize: 13, fontFamily: 'Poppins,sans-serif', display: 'flex', alignItems: 'center', gap: 4, justifyContent: 'center' }}>
-              <RefreshCw size={13} /> Back / Resend OTP
-            </button>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <button onClick={() => { setStep('phone'); setOtp(''); clearRecaptcha(); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#8b6344', fontSize: 13, fontFamily: 'Poppins,sans-serif', display: 'flex', alignItems: 'center', gap: 4 }}>
+                ← Change number
+              </button>
+              <button onClick={handleResendOtp} disabled={resendCooldown > 0 || loading}
+                style={{ background: 'none', border: 'none', cursor: resendCooldown > 0 ? 'not-allowed' : 'pointer', color: resendCooldown > 0 ? '#9ca3af' : PRIMARY, fontSize: 13, fontFamily: 'Poppins,sans-serif', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>
+                <RefreshCw size={13} /> {resendCooldown > 0 ? `Resend in ${resendCooldown}s` : 'Resend OTP'}
+              </button>
+            </div>
           </div>
         )}
 
-        {/* FORGOT PASSWORD */}
+        {/* ── FORGOT: step 1 — phone ── */}
         {mode === 'forgot' && step === 'phone' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
             <InputField label="Registered Phone" type="tel" value={phone} onChange={setPhone} placeholder="+91 98765 43210" icon={<Phone size={15} />} />
             <PrimaryBtn onClick={handleForgotSendOtp} loading={loading} disabled={!phone.trim()}>
               Send Reset OTP <ArrowRight size={16} />
             </PrimaryBtn>
-            <button onClick={() => switchMode('login')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#8b6344', fontSize: 13, fontFamily: 'Poppins,sans-serif' }}>
+            <button onClick={() => switchMode('login')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#8b6344', fontSize: 13, fontFamily: 'Poppins,sans-serif', textAlign: 'center' }}>
               ← Back to Sign In
             </button>
           </div>
         )}
 
+        {/* ── FORGOT: step 2 — OTP + new password ── */}
         {mode === 'forgot' && step === 'otp' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+            <div style={{ padding: '10px 14px', borderRadius: 10, background: 'rgba(59,130,246,0.08)', border: '1px solid rgba(59,130,246,0.2)' }}>
+              <p style={{ fontSize: 13, color: '#1d4ed8', fontWeight: 600 }}>📱 Reset OTP sent via SMS</p>
+              <p style={{ fontSize: 11, color: '#1d4ed8', opacity: 0.8, marginTop: 2 }}>Enter the code and set your new password.</p>
+            </div>
             <InputField label="OTP" type="text" value={otp} onChange={setOtp} placeholder="6-digit code" />
             <InputField label="New Password" type={showPwd ? 'text' : 'password'} value={newPassword} onChange={setNewPassword} placeholder="Min. 6 characters"
               icon={<Lock size={15} />}
               right={<button onClick={() => setShowPwd(v => !v)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#8b6344', display: 'flex' }}>{showPwd ? <EyeOff size={15} /> : <Eye size={15} />}</button>}
             />
             <InputField label="Confirm Password" type="password" value={confirmPassword} onChange={setConfirmPassword} placeholder="Re-enter password" icon={<Lock size={15} />} />
-            <PrimaryBtn onClick={handleResetPassword} loading={loading} disabled={!otp.trim() || !newPassword.trim()}>
+            <PrimaryBtn onClick={handleResetPassword} loading={loading} disabled={otp.trim().length < 6 || !newPassword.trim()}>
               Reset Password <CheckCircle2 size={16} />
             </PrimaryBtn>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <button onClick={() => { setStep('phone'); setOtp(''); clearRecaptcha(); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#8b6344', fontSize: 13, fontFamily: 'Poppins,sans-serif' }}>
+                ← Change number
+              </button>
+              <button onClick={handleResendOtp} disabled={resendCooldown > 0 || loading}
+                style={{ background: 'none', border: 'none', cursor: resendCooldown > 0 ? 'not-allowed' : 'pointer', color: resendCooldown > 0 ? '#9ca3af' : PRIMARY, fontSize: 13, fontFamily: 'Poppins,sans-serif', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>
+                <RefreshCw size={13} /> {resendCooldown > 0 ? `Resend in ${resendCooldown}s` : 'Resend OTP'}
+              </button>
+            </div>
           </div>
         )}
       </motion.div>

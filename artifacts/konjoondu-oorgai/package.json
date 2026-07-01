@@ -76,6 +76,7 @@
   },
   "dependencies": {
     "@studio-freight/lenis": "^1.0.42",
+    "firebase": "^12.15.0",
     "gsap": "^3.15.0",
     "qrcode.react": "^4.2.0",
     "swiper": "^14.0.0"
