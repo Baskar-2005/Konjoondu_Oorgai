@@ -1,5 +1,6 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import { randomUUID } from "crypto";
+import nodemailer from "nodemailer";
 import { ordersCol, issuesCol, customersCol, notificationsCol } from "../lib/firestoreDb";
 import { getCustomerFromToken } from "./auth";
 
@@ -68,6 +69,91 @@ async function addTrackingStep(orderId: string, status: string) {
     description: info.description,
     completed: true,
   });
+}
+
+async function sendConfirmationEmail(
+  order: NonNullable<Awaited<ReturnType<typeof formatOrder>>>,
+): Promise<void> {
+  if (!order.customer.email) return;
+  if (!process.env.EMAIL_USER || !process.env.EMAIL_APP_PASSWORD) return;
+
+  const transporter = nodemailer.createTransport({
+    service: "gmail",
+    auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_APP_PASSWORD },
+  });
+
+  const itemRows = order.items
+    .map(
+      (i) => `
+      <tr>
+        <td style="padding:8px 12px;border-bottom:1px solid #f0e8df;">${i.productName} (${i.size})</td>
+        <td style="padding:8px 12px;border-bottom:1px solid #f0e8df;text-align:center;">${i.quantity}</td>
+        <td style="padding:8px 12px;border-bottom:1px solid #f0e8df;text-align:right;">₹${(i.price * i.quantity).toLocaleString("en-IN")}</td>
+      </tr>`,
+    )
+    .join("");
+
+  const html = `<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"/></head>
+<body style="margin:0;padding:0;background:#fdf8f3;font-family:Poppins,Arial,sans-serif;">
+  <div style="max-width:600px;margin:32px auto;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(139,94,60,0.1);">
+    <div style="background:linear-gradient(135deg,#b53a2e,#8b2a20);padding:32px 36px;text-align:center;">
+      <h1 style="color:#fff9f0;margin:0;font-size:26px;font-weight:800;letter-spacing:-0.5px;">Konjoondu Oorgai</h1>
+      <p style="color:rgba(255,249,240,0.75);margin:6px 0 0;font-size:14px;">Order Confirmation</p>
+    </div>
+    <div style="padding:32px 36px;">
+      <p style="color:#3d2b1f;font-size:16px;margin-top:0;">Dear <strong>${order.customer.name}</strong>,</p>
+      <p style="color:#6b4c38;font-size:14px;line-height:1.6;">
+        Thank you for your order! We've received it and will contact you within 24 hours to arrange delivery.
+      </p>
+      <div style="background:#fdf8f3;border-radius:12px;padding:16px 20px;margin:20px 0;border:1px solid #f0e8df;">
+        <p style="margin:0;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:#8b5e3c;">Order ID</p>
+        <p style="margin:6px 0 0;font-size:20px;font-weight:800;color:#b53a2e;">${order.id}</p>
+        ${order.paymentId ? `<p style="margin:4px 0 0;font-size:12px;color:#6b4c38;">✅ Paid · ${order.paymentId}</p>` : `<p style="margin:4px 0 0;font-size:12px;color:#b45309;">⏳ Payment pending</p>`}
+      </div>
+      <table style="width:100%;border-collapse:collapse;margin:20px 0;">
+        <thead>
+          <tr style="background:#fdf8f3;">
+            <th style="padding:10px 12px;text-align:left;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:#8b5e3c;">Item</th>
+            <th style="padding:10px 12px;text-align:center;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:#8b5e3c;">Qty</th>
+            <th style="padding:10px 12px;text-align:right;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:#8b5e3c;">Price</th>
+          </tr>
+        </thead>
+        <tbody>${itemRows}</tbody>
+        <tfoot>
+          <tr>
+            <td colspan="2" style="padding:12px;font-weight:800;font-size:15px;color:#3d2b1f;">Total</td>
+            <td style="padding:12px;font-weight:800;font-size:18px;color:#b53a2e;text-align:right;">₹${order.totalAmount.toLocaleString("en-IN")}</td>
+          </tr>
+        </tfoot>
+      </table>
+      <div style="background:#fdf8f3;border-radius:12px;padding:16px 20px;margin:20px 0;border:1px solid #f0e8df;">
+        <p style="margin:0;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:#8b5e3c;">Delivery Address</p>
+        <p style="margin:6px 0 0;font-size:14px;color:#3d2b1f;line-height:1.5;">${order.customer.address}</p>
+      </div>
+      <p style="color:#6b4c38;font-size:13px;line-height:1.6;">
+        We'll send you an update once your order is shipped. If you have any questions, just reply to this email.
+      </p>
+    </div>
+    <div style="background:#fdf8f3;padding:20px 36px;text-align:center;border-top:1px solid #f0e8df;">
+      <p style="margin:0;font-size:12px;color:#8b5e3c;">© ${new Date().getFullYear()} Konjoondu Oorgai · Handcrafted Pickles</p>
+    </div>
+  </div>
+</body>
+</html>`;
+
+  try {
+    await transporter.sendMail({
+      from: `"Konjoondu Oorgai" <${process.env.EMAIL_USER}>`,
+      to: order.customer.email,
+      subject: `Order Confirmed — ${order.id} | Konjoondu Oorgai`,
+      html,
+    });
+    console.info("[email] Confirmation sent for order", order.id);
+  } catch (err) {
+    console.warn("[email] Failed to send confirmation:", err);
+  }
 }
 
 async function notifyTelegram(
@@ -164,7 +250,10 @@ router.post("/orders", async (req, res) => {
     order: formatted,
   });
 
-  if (formatted) notifyTelegram(formatted);
+  if (formatted) {
+    notifyTelegram(formatted);
+    sendConfirmationEmail(formatted);
+  }
 });
 
 // GET /api/orders
