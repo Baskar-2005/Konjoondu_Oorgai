@@ -488,10 +488,8 @@ export const addressesCol = {
       .collection("customers")
       .doc(customerId)
       .collection("addresses")
-      .orderBy("isDefault", "desc")
-      .orderBy("createdAt", "desc")
       .get();
-    return snap.docs.map((d) => {
+    const results = snap.docs.map((d) => {
       const data = d.data() as Record<string, unknown>;
       return {
         id: d.id,
@@ -510,6 +508,10 @@ export const addressesCol = {
         createdAt: fromTs(data.createdAt),
         updatedAt: fromTs(data.updatedAt),
       };
+    });
+    return results.sort((a, b) => {
+      if (a.isDefault !== b.isDefault) return a.isDefault ? -1 : 1;
+      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
     });
   },
 

@@ -36,15 +36,31 @@ function loadRazorpayScript(): Promise<boolean> {
   });
 }
 
+interface SavedAddress {
+  id: string;
+  label: string;
+  type: string;
+  recipientName: string;
+  phone: string;
+  line1: string;
+  line2: string;
+  city: string;
+  state: string;
+  pincode: string;
+  isDefault: boolean;
+}
+
 function CartDrawerContent() {
   const { items, totalAmount, totalItems, isOpen, closeCart, removeItem, updateQuantity, clearCart } = useCart();
   const { toast } = useToast();
-  const { isLoggedIn, customer } = useCustomer();
+  const { isLoggedIn, customer, token, apiBase } = useCustomer();
   const [, navigate] = useLocation();
   const [step, setStep] = useState<Step>('cart');
   const [form, setForm] = useState<CheckoutForm>({ name: '', phone: '', email: '', address: '' });
   const [loading, setLoading] = useState(false);
   const [orderId, setOrderId] = useState('');
+  const [savedAddresses, setSavedAddresses] = useState<SavedAddress[]>([]);
+  const [selectedAddressId, setSelectedAddressId] = useState<string | null>(null);
 
   useEffect(() => {
     if (isOpen) return;
@@ -62,6 +78,22 @@ function CartDrawerContent() {
       }));
     }
   }, [customer]);
+
+  useEffect(() => {
+    if (step !== 'checkout' || !token) return;
+    fetch(`${apiBase}/customer/addresses`, { headers: { 'x-customer-token': token } })
+      .then(r => r.json())
+      .then(d => {
+        if (d.success && d.addresses.length > 0) {
+          setSavedAddresses(d.addresses);
+          const def = d.addresses.find((a: SavedAddress) => a.isDefault) ?? d.addresses[0];
+          setSelectedAddressId(def.id);
+          const fullAddress = [def.line1, def.line2, def.city, def.state, def.pincode].filter(Boolean).join(', ');
+          setForm(prev => ({ ...prev, address: fullAddress, name: prev.name || def.recipientName, phone: prev.phone || def.phone }));
+        }
+      })
+      .catch(() => {});
+  }, [step, token, apiBase]);
 
   useEffect(() => {
     if (isOpen) {
@@ -374,18 +406,63 @@ function CartDrawerContent() {
                     <label style={{ display: 'block', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'hsl(var(--muted-foreground))', marginBottom: 6 }}>
                       Delivery Address *
                     </label>
-                    <textarea
-                      placeholder="Full delivery address with pincode"
-                      rows={3} value={form.address}
-                      onChange={e => setForm(prev => ({ ...prev, address: e.target.value }))}
-                      style={{
-                        width: '100%', padding: '10px 14px', borderRadius: 12, fontSize: 14,
-                        border: '1.5px solid rgba(139,94,60,0.2)', background: 'transparent',
-                        outline: 'none', resize: 'none', boxSizing: 'border-box', fontFamily: 'inherit', color: 'inherit',
-                      }}
-                      onFocus={e => { e.target.style.borderColor = 'hsl(4,60%,44%)'; }}
-                      onBlur={e => { e.target.style.borderColor = 'rgba(139,94,60,0.2)'; }}
-                    />
+
+                    {/* Saved address picker */}
+                    {savedAddresses.length > 0 && (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 10 }}>
+                        {savedAddresses.map(addr => (
+                          <div key={addr.id}
+                            onClick={() => {
+                              setSelectedAddressId(addr.id);
+                              const fullAddress = [addr.line1, addr.line2, addr.city, addr.state, addr.pincode].filter(Boolean).join(', ');
+                              setForm(prev => ({ ...prev, address: fullAddress }));
+                            }}
+                            style={{
+                              padding: '10px 14px', borderRadius: 12, cursor: 'pointer',
+                              border: `1.5px solid ${selectedAddressId === addr.id ? 'hsl(4,60%,44%)' : 'rgba(139,94,60,0.2)'}`,
+                              background: selectedAddressId === addr.id ? 'rgba(181,58,46,0.06)' : 'transparent',
+                              transition: 'all 0.15s',
+                            }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                              <span style={{ fontSize: 12, fontWeight: 700, color: selectedAddressId === addr.id ? 'hsl(4,60%,44%)' : 'hsl(var(--foreground))' }}>
+                                {addr.label} {addr.isDefault && <span style={{ fontSize: 10, background: 'hsl(4,60%,44%)', color: '#fff', padding: '1px 6px', borderRadius: 20, marginLeft: 4 }}>DEFAULT</span>}
+                              </span>
+                              <div style={{ width: 16, height: 16, borderRadius: '50%', border: `2px solid ${selectedAddressId === addr.id ? 'hsl(4,60%,44%)' : 'rgba(139,94,60,0.3)'}`, background: selectedAddressId === addr.id ? 'hsl(4,60%,44%)' : 'transparent', flexShrink: 0 }} />
+                            </div>
+                            <p style={{ fontSize: 12, color: 'hsl(var(--muted-foreground))', marginTop: 2, lineHeight: 1.5 }}>
+                              {addr.line1}{addr.line2 ? `, ${addr.line2}` : ''}, {addr.city}, {addr.state} - {addr.pincode}
+                            </p>
+                          </div>
+                        ))}
+                        <div
+                          onClick={() => { setSelectedAddressId(null); setForm(prev => ({ ...prev, address: '' })); }}
+                          style={{
+                            padding: '10px 14px', borderRadius: 12, cursor: 'pointer',
+                            border: `1.5px solid ${selectedAddressId === null ? 'hsl(4,60%,44%)' : 'rgba(139,94,60,0.2)'}`,
+                            background: selectedAddressId === null ? 'rgba(181,58,46,0.06)' : 'transparent',
+                            fontSize: 12, fontWeight: 700,
+                            color: selectedAddressId === null ? 'hsl(4,60%,44%)' : 'hsl(var(--muted-foreground))',
+                          }}>
+                          + Enter a different address
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Manual address input — shown when no saved addresses or "Enter different" selected */}
+                    {(savedAddresses.length === 0 || selectedAddressId === null) && (
+                      <textarea
+                        placeholder="Full delivery address with pincode"
+                        rows={3} value={form.address}
+                        onChange={e => setForm(prev => ({ ...prev, address: e.target.value }))}
+                        style={{
+                          width: '100%', padding: '10px 14px', borderRadius: 12, fontSize: 14,
+                          border: '1.5px solid rgba(139,94,60,0.2)', background: 'transparent',
+                          outline: 'none', resize: 'none', boxSizing: 'border-box', fontFamily: 'inherit', color: 'inherit',
+                        }}
+                        onFocus={e => { e.target.style.borderColor = 'hsl(4,60%,44%)'; }}
+                        onBlur={e => { e.target.style.borderColor = 'rgba(139,94,60,0.2)'; }}
+                      />
+                    )}
                   </div>
 
                   {/* Order Summary */}
