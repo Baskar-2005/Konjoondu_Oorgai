@@ -384,11 +384,13 @@ export const ordersCol = {
       .doc(orderId)
       .collection("items")
       .get();
-    return snap.docs.map((d) => ({
-      id: d.id,
-      orderId,
-      ...(d.data() as Omit<OrderItem, "id" | "orderId">),
-    }));
+    return snap.docs
+      .filter((d) => !d.data()._note) // skip __schema marker docs
+      .map((d) => ({
+        id: d.id,
+        orderId,
+        ...(d.data() as Omit<OrderItem, "id" | "orderId">),
+      }));
   },
 
   // Tracking

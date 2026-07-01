@@ -134,7 +134,7 @@ function printInvoice(order: Order) {
     <table>
       <thead><tr><th>#</th><th>Product</th><th>Size</th><th>Unit Price</th><th>Qty</th><th style="text-align:right">Subtotal</th></tr></thead>
       <tbody>
-        ${order.items.map((item, i) => `<tr><td style="color:#9ca3af">${i + 1}</td><td style="font-weight:600">${item.productName}</td><td>${item.size}</td><td>₹${item.price.toLocaleString('en-IN')}</td><td>×${item.quantity}</td><td style="text-align:right;font-weight:700">₹${(item.price * item.quantity).toLocaleString('en-IN')}</td></tr>`).join('')}
+        ${order.items.map((item, i) => { const p = Number(item.price ?? 0); const q = Number(item.quantity ?? 0); return `<tr><td style="color:#9ca3af">${i + 1}</td><td style="font-weight:600">${item.productName ?? '—'}</td><td>${item.size ?? '—'}</td><td>₹${p.toLocaleString('en-IN')}</td><td>×${q}</td><td style="text-align:right;font-weight:700">₹${(p * q).toLocaleString('en-IN')}</td></tr>`; }).join('')}
         <tr class="total-row"><td colspan="5" style="text-align:right">Grand Total</td><td style="text-align:right">₹${order.totalAmount.toLocaleString('en-IN')}</td></tr>
       </tbody>
     </table>
@@ -447,15 +447,19 @@ export default function Orders({ orders, token, loading, onRefresh, onUpdateStat
                               </tr>
                             </thead>
                             <tbody>
-                              {order.items.map((item, i) => (
+                              {order.items.map((item, i) => {
+                                const price = Number(item.price ?? 0);
+                                const qty = Number(item.quantity ?? 0);
+                                return (
                                 <tr key={i} style={{ borderBottom: `1px solid var(--adm-border)` }}>
-                                  <td style={{ padding: '10px 10px', color: 'var(--adm-text)', fontWeight: 600 }}>{item.productName}</td>
-                                  <td style={{ padding: '10px 10px', color: 'var(--adm-text2)' }}>{item.size}</td>
-                                  <td style={{ padding: '10px 10px', color: 'var(--adm-text3)' }}>₹{item.price.toLocaleString('en-IN')}</td>
-                                  <td style={{ padding: '10px 10px', color: 'var(--adm-text3)' }}>×{item.quantity}</td>
-                                  <td style={{ padding: '10px 10px', color: 'var(--adm-text)', fontWeight: 700 }}>₹{(item.price * item.quantity).toLocaleString('en-IN')}</td>
+                                  <td style={{ padding: '10px 10px', color: 'var(--adm-text)', fontWeight: 600 }}>{item.productName ?? '—'}</td>
+                                  <td style={{ padding: '10px 10px', color: 'var(--adm-text2)' }}>{item.size ?? '—'}</td>
+                                  <td style={{ padding: '10px 10px', color: 'var(--adm-text3)' }}>₹{price.toLocaleString('en-IN')}</td>
+                                  <td style={{ padding: '10px 10px', color: 'var(--adm-text3)' }}>×{qty}</td>
+                                  <td style={{ padding: '10px 10px', color: 'var(--adm-text)', fontWeight: 700 }}>₹{(price * qty).toLocaleString('en-IN')}</td>
                                 </tr>
-                              ))}
+                                );
+                              })}
                               <tr>
                                 <td colSpan={4} style={{ padding: '10px 10px', textAlign: 'right', fontWeight: 700, color: 'var(--adm-text2)', fontSize: 11 }}>Total</td>
                                 <td style={{ padding: '10px 10px', fontWeight: 800, color: '#2d6a4f', fontSize: 15 }}>₹{order.totalAmount.toLocaleString('en-IN')}</td>
