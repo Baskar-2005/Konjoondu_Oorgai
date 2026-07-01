@@ -10,7 +10,16 @@ function ensureInit(): Firestore {
           "Set it to the full JSON of your Firebase service account key.",
       );
     }
-    initializeApp({ credential: cert(JSON.parse(sa) as object) });
+    // Parse and normalise the private key. When pasted through env-var forms
+    // the literal "\n" sequences in the PEM block are sometimes stored as the
+    // two-character string "\\n" rather than real newlines, which causes gRPC
+    // to reject the credential with UNAUTHENTICATED. We fix it here so the
+    // secret works regardless of how it was entered.
+    const parsed = JSON.parse(sa) as Record<string, unknown>;
+    if (typeof parsed.private_key === "string") {
+      parsed.private_key = (parsed.private_key as string).replace(/\\n/g, "\n");
+    }
+    initializeApp({ credential: cert(parsed) });
   }
   return getFirestore();
 }
