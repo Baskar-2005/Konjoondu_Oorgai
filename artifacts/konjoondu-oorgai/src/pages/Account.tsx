@@ -139,7 +139,7 @@ const PAGE_TITLES: Record<AccountPage, string> = {
 function FirstLoginModal({ onComplete }: { onComplete: () => void }) {
   const { customer, token, apiBase, updateCustomer } = useCustomer();
   const [step, setStep] = useState<'profile' | 'address'>('profile');
-  const [form, setForm] = useState({ name: customer?.name || '', email: customer?.email || '', dob: '', gender: '' });
+  const [form, setForm] = useState({ name: customer?.name || '', email: customer?.email || '', phone: customer?.phone || '', dob: '', gender: '' });
   const [saving, setSaving] = useState(false);
 
   async function saveProfile() {
@@ -151,7 +151,7 @@ function FirstLoginModal({ onComplete }: { onComplete: () => void }) {
         body: JSON.stringify({ ...form, isFirstLogin: false }),
       });
       const d = await res.json();
-      if (d.success) { updateCustomer({ ...form, isFirstLogin: false }); setStep('address'); }
+      if (d.success) { updateCustomer(d.customer); setStep('address'); }
     } catch { /* silent */ }
     finally { setSaving(false); }
   }
@@ -174,6 +174,7 @@ function FirstLoginModal({ onComplete }: { onComplete: () => void }) {
             {[
               { key: 'name', label: 'Full Name *', type: 'text', placeholder: 'Your full name' },
               { key: 'email', label: 'Email (optional)', type: 'email', placeholder: 'your@email.com' },
+              { key: 'phone', label: 'Phone Number (optional)', type: 'tel', placeholder: '+91 98765 43210' },
               { key: 'dob', label: 'Date of Birth (optional)', type: 'date', placeholder: '' },
             ].map(f => (
               <div key={f.key}>

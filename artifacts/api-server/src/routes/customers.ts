@@ -36,13 +36,14 @@ router.get("/customer/me", async (req, res) => {
 router.patch("/customer/me", async (req, res) => {
   const customerId = await getCustomerFromToken(req, res);
   if (!customerId) return;
-  const { name, email, dob, gender, profilePicture, communicationPrefs, isFirstLogin } = req.body as {
-    name?: string; email?: string; dob?: string; gender?: string;
+  const { name, email, phone, dob, gender, profilePicture, communicationPrefs, isFirstLogin } = req.body as {
+    name?: string; email?: string; phone?: string; dob?: string; gender?: string;
     profilePicture?: string; communicationPrefs?: Record<string, boolean>; isFirstLogin?: boolean;
   };
   const updates: Partial<Customer> = {};
   if (name !== undefined) updates.name = name;
   if (email !== undefined) updates.email = email;
+  if (phone !== undefined) updates.phone = phone.trim().replace(/\s+/g, "");
   if (dob !== undefined) updates.dob = dob;
   if (gender !== undefined) updates.gender = gender;
   if (profilePicture !== undefined) updates.profilePicture = profilePicture;

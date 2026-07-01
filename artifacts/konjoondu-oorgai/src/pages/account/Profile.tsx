@@ -64,9 +64,12 @@ export default function Profile() {
   const [form, setForm] = useState({
     name: customer?.name || '',
     email: customer?.email || '',
+    phone: customer?.phone || '',
     dob: customer?.dob || '',
     gender: customer?.gender || '',
   });
+  // Google users have no phone from registration — let them set it
+  const hasPhone = !!(customer?.phone);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState('');
@@ -83,7 +86,7 @@ export default function Profile() {
       const res = await fetch(`${apiBase}/customer/me`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json', 'x-customer-token': token },
-        body: JSON.stringify(form),
+        body: JSON.stringify({ ...form, phone: form.phone.trim().replace(/\s+/g, '') || undefined }),
       });
       const data = await res.json();
       if (data.success) { updateCustomer(data.customer); setSaved(true); setTimeout(() => setSaved(false), 3000); }
@@ -110,7 +113,7 @@ export default function Profile() {
     finally { setPwdSaving(false); }
   }
 
-  const profilePct = [form.name, form.email, customer?.phone, form.dob, form.gender].filter(Boolean).length;
+  const profilePct = [form.name, form.email, form.phone, form.dob, form.gender].filter(Boolean).length;
 
   return (
     <div style={{ maxWidth: 640, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 20 }}>
@@ -122,7 +125,7 @@ export default function Profile() {
         </div>
         <div style={{ flex: 1 }}>
           <div style={{ fontWeight: 800, fontSize: 16, color: '#1a0f08' }}>{customer?.name || 'Your Name'}</div>
-          <div style={{ fontSize: 12, color: '#8b6344', marginTop: 2 }}>📞 {customer?.phone}</div>
+          {form.phone && <div style={{ fontSize: 12, color: '#8b6344', marginTop: 2 }}>📞 {form.phone}</div>}
           <div style={{ marginTop: 10 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 5 }}>
               <span style={{ fontSize: 11, color: '#8b6344', fontWeight: 600 }}>Profile Completion</span>
@@ -142,7 +145,12 @@ export default function Profile() {
         <h3 style={{ fontSize: 15, fontWeight: 800, color: '#1a0f08', marginBottom: 20 }}>Personal Information</h3>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
           <Field label="Full Name" value={form.name} onChange={v => setForm(f => ({ ...f, name: v }))} icon={<User size={15} />} placeholder="Your full name" />
-          <Field label="Phone Number" value={customer?.phone || ''} readOnly icon={<Phone size={15} />} />
+          <Field label={hasPhone ? 'Phone Number' : 'Phone Number (optional)'}
+            value={form.phone}
+            onChange={hasPhone ? undefined : v => setForm(f => ({ ...f, phone: v }))}
+            readOnly={hasPhone}
+            icon={<Phone size={15} />}
+            placeholder="+91 98765 43210" />
           <Field label="Email Address" value={form.email} onChange={v => setForm(f => ({ ...f, email: v }))} type="email" icon={<Mail size={15} />} placeholder="your@email.com" />
           <Field label="Date of Birth" value={form.dob} onChange={v => setForm(f => ({ ...f, dob: v }))} type="date" icon={<Calendar size={15} />} />
           <SelectField label="Gender" value={form.gender} onChange={v => setForm(f => ({ ...f, gender: v }))}
