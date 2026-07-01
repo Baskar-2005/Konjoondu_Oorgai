@@ -112,17 +112,62 @@ router.get("/admin/inventory", async (req, res) => {
   }
 });
 
-// PATCH /api/admin/inventory/:id — update stock count
+// POST /api/admin/inventory — add a new inventory item
+router.post("/admin/inventory", async (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  try {
+    const body = req.body as Record<string, unknown>;
+    const item = {
+      productName: String(body.productName ?? ""),
+      sku: String(body.sku ?? ""),
+      size: String(body.size ?? ""),
+      batch: String(body.batch ?? ""),
+      stock: Number(body.stock ?? 0),
+      threshold: Number(body.threshold ?? 10),
+      incoming: Number(body.incoming ?? 0),
+      expiry: String(body.expiry ?? ""),
+      supplier: String(body.supplier ?? ""),
+      cost: Number(body.cost ?? 0),
+    };
+    if (!item.productName) {
+      res.status(400).json({ success: false, message: "productName is required." });
+      return;
+    }
+    const id = await inventoryCol.create(item);
+    res.json({ success: true, id });
+  } catch (err) {
+    res.status(500).json({ success: false, message: String(err) });
+  }
+});
+
+// PATCH /api/admin/inventory/:id — update any inventory fields
 router.patch("/admin/inventory/:id", async (req, res) => {
   if (!requireAdmin(req, res)) return;
   const { id } = req.params;
-  const { stock } = req.body as { stock?: number };
-  if (stock === undefined || typeof stock !== "number" || stock < 0) {
-    res.status(400).json({ success: false, message: "stock must be a non-negative number." });
-    return;
-  }
   try {
-    await inventoryCol.update(id, stock);
+    const body = req.body as Record<string, unknown>;
+    const updates: Record<string, unknown> = {};
+    const numFields = ["stock", "threshold", "incoming", "cost"];
+    const strFields = ["productName", "sku", "size", "batch", "expiry", "supplier"];
+    for (const f of numFields) if (f in body) updates[f] = Number(body[f]);
+    for (const f of strFields) if (f in body) updates[f] = String(body[f]);
+    if (!Object.keys(updates).length) {
+      res.status(400).json({ success: false, message: "Nothing to update." });
+      return;
+    }
+    await inventoryCol.update(id, updates as Parameters<typeof inventoryCol.update>[1]);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ success: false, message: String(err) });
+  }
+});
+
+// DELETE /api/admin/inventory/:id — remove an inventory item
+router.delete("/admin/inventory/:id", async (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  const { id } = req.params;
+  try {
+    await inventoryCol.delete(id);
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ success: false, message: String(err) });

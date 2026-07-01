@@ -315,7 +315,7 @@ export default function AdminPage() {
       case 'orders':        return <Orders orders={orders} token={token} loading={loading} onRefresh={() => fetchOrders(token)} onUpdateStatus={updateStatus} onSeedDemo={seedDemo} seeding={seeding} />;
       case 'create-order':  return <CreateOrder token={token} onSuccess={() => { fetchOrders(token); setPage('orders'); }} />;
       case 'products':      return <Products />;
-      case 'inventory':     return <Inventory />;
+      case 'inventory':     return <Inventory token={token} />;
       case 'customers':     return <Customers orders={orders} firestoreCustomers={customers} onRefresh={() => fetchCustomers(token)} />;
       case 'coupons':       return <Coupons />;
       case 'analytics':     return <Analytics orders={orders} />;

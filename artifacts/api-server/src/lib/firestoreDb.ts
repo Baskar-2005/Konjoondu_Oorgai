@@ -881,24 +881,56 @@ export const notificationsCol = {
 export interface InventoryItem {
   id: string;
   productName: string;
+  sku: string;
   size: string;
+  batch: string;
   stock: number;
   threshold: number;
+  incoming: number;
+  expiry: string;
+  supplier: string;
+  cost: number;
   updatedAt: Date;
 }
 
 const SEED_INVENTORY: Omit<InventoryItem, "id" | "updatedAt">[] = [
-  { productName: "Prawn Pickle", size: "250g", stock: 4, threshold: 10 },
-  { productName: "Prawn Pickle", size: "500g", stock: 12, threshold: 10 },
-  { productName: "Chicken Pickle", size: "250g", stock: 15, threshold: 10 },
-  { productName: "Chicken Pickle", size: "500g", stock: 8, threshold: 10 },
-  { productName: "Squid Pickle", size: "250g", stock: 2, threshold: 10 },
-  { productName: "Squid Pickle", size: "500g", stock: 18, threshold: 10 },
-  { productName: "Mutton Pickle", size: "100g", stock: 7, threshold: 10 },
-  { productName: "Mutton Pickle", size: "250g", stock: 20, threshold: 10 },
-  { productName: "Nethili Pickle", size: "250g", stock: 11, threshold: 10 },
-  { productName: "Soorai Pickle", size: "250g", stock: 5, threshold: 10 },
+  { productName: "Prawn Pickle",         sku: "KO-PP-100", size: "100g",  batch: "", stock: 0, threshold: 15, incoming: 0, expiry: "", supplier: "", cost: 0 },
+  { productName: "Prawn Pickle",         sku: "KO-PP-250", size: "250g",  batch: "", stock: 0, threshold: 10, incoming: 0, expiry: "", supplier: "", cost: 0 },
+  { productName: "Prawn Pickle",         sku: "KO-PP-500", size: "500g",  batch: "", stock: 0, threshold: 10, incoming: 0, expiry: "", supplier: "", cost: 0 },
+  { productName: "Chicken Pickle",       sku: "KO-CP-100", size: "100g",  batch: "", stock: 0, threshold: 8,  incoming: 0, expiry: "", supplier: "", cost: 0 },
+  { productName: "Chicken Pickle",       sku: "KO-CP-250", size: "250g",  batch: "", stock: 0, threshold: 10, incoming: 0, expiry: "", supplier: "", cost: 0 },
+  { productName: "Mutton Pickle",        sku: "KO-MP-100", size: "100g",  batch: "", stock: 0, threshold: 10, incoming: 0, expiry: "", supplier: "", cost: 0 },
+  { productName: "Mutton Pickle",        sku: "KO-MP-250", size: "250g",  batch: "", stock: 0, threshold: 10, incoming: 0, expiry: "", supplier: "", cost: 0 },
+  { productName: "Squid Pickle",         sku: "KO-SP-250", size: "250g",  batch: "", stock: 0, threshold: 10, incoming: 0, expiry: "", supplier: "", cost: 0 },
+  { productName: "Squid Pickle",         sku: "KO-SP-500", size: "500g",  batch: "", stock: 0, threshold: 10, incoming: 0, expiry: "", supplier: "", cost: 0 },
+  { productName: "Nethili Pickle",       sku: "KO-NP-100", size: "100g",  batch: "", stock: 0, threshold: 12, incoming: 0, expiry: "", supplier: "", cost: 0 },
+  { productName: "Nethili Pickle",       sku: "KO-NP-250", size: "250g",  batch: "", stock: 0, threshold: 10, incoming: 0, expiry: "", supplier: "", cost: 0 },
+  { productName: "Nethili Sambal",       sku: "KO-NS-100", size: "100g",  batch: "", stock: 0, threshold: 10, incoming: 0, expiry: "", supplier: "", cost: 0 },
+  { productName: "Nethili Karuvaadu",    sku: "KO-NK-250", size: "250g",  batch: "", stock: 0, threshold: 8,  incoming: 0, expiry: "", supplier: "", cost: 0 },
+  { productName: "Soorai Pickle",        sku: "KO-SOP-100",size: "100g",  batch: "", stock: 0, threshold: 10, incoming: 0, expiry: "", supplier: "", cost: 0 },
+  { productName: "Vaala Karuvaadu",      sku: "KO-VK-100", size: "100g",  batch: "", stock: 0, threshold: 10, incoming: 0, expiry: "", supplier: "", cost: 0 },
+  { productName: "Maldives Fish Sambal", sku: "KO-MFS-100",size: "100g",  batch: "", stock: 0, threshold: 10, incoming: 0, expiry: "", supplier: "", cost: 0 },
+  { productName: "Chennakunni Idly Podi",sku: "KO-IP-100", size: "100g",  batch: "", stock: 0, threshold: 20, incoming: 0, expiry: "", supplier: "", cost: 0 },
+  { productName: "Chennakunni Idly Podi",sku: "KO-IP-200", size: "200g",  batch: "", stock: 0, threshold: 15, incoming: 0, expiry: "", supplier: "", cost: 0 },
 ];
+
+function mapInventoryDoc(d: FirebaseFirestore.QueryDocumentSnapshot | FirebaseFirestore.DocumentSnapshot): InventoryItem {
+  const data = d.data() as Record<string, unknown>;
+  return {
+    id: d.id,
+    productName: (data.productName as string) ?? "",
+    sku: (data.sku as string) ?? "",
+    size: (data.size as string) ?? "",
+    batch: (data.batch as string) ?? "",
+    stock: (data.stock as number) ?? 0,
+    threshold: (data.threshold as number) ?? 10,
+    incoming: (data.incoming as number) ?? 0,
+    expiry: (data.expiry as string) ?? "",
+    supplier: (data.supplier as string) ?? "",
+    cost: (data.cost as number) ?? 0,
+    updatedAt: fromTs(data.updatedAt),
+  };
+}
 
 export const inventoryCol = {
   async findAll(): Promise<InventoryItem[]> {
@@ -906,29 +938,9 @@ export const inventoryCol = {
     if (snap.empty) {
       await this.seed();
       const snap2 = await fdb.collection("inventory").orderBy("productName").get();
-      return snap2.docs.map((d) => {
-        const data = d.data() as Record<string, unknown>;
-        return {
-          id: d.id,
-          productName: data.productName as string,
-          size: data.size as string,
-          stock: data.stock as number,
-          threshold: data.threshold as number,
-          updatedAt: fromTs(data.updatedAt),
-        };
-      });
+      return snap2.docs.map(mapInventoryDoc);
     }
-    return snap.docs.map((d) => {
-      const data = d.data() as Record<string, unknown>;
-      return {
-        id: d.id,
-        productName: data.productName as string,
-        size: data.size as string,
-        stock: data.stock as number,
-        threshold: data.threshold as number,
-        updatedAt: fromTs(data.updatedAt),
-      };
-    });
+    return snap.docs.map(mapInventoryDoc);
   },
 
   async seed(): Promise<void> {
@@ -940,7 +952,16 @@ export const inventoryCol = {
     await batch.commit();
   },
 
-  async update(id: string, stock: number): Promise<void> {
-    await fdb.collection("inventory").doc(id).update({ stock, updatedAt: new Date() });
+  async create(item: Omit<InventoryItem, "id" | "updatedAt">): Promise<string> {
+    const ref = await fdb.collection("inventory").add({ ...item, updatedAt: new Date() });
+    return ref.id;
+  },
+
+  async update(id: string, updates: Partial<Omit<InventoryItem, "id" | "updatedAt">>): Promise<void> {
+    await fdb.collection("inventory").doc(id).update({ ...updates, updatedAt: new Date() });
+  },
+
+  async delete(id: string): Promise<void> {
+    await fdb.collection("inventory").doc(id).delete();
   },
 };
