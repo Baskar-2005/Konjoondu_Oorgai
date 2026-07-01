@@ -1,3 +1,4 @@
 - [Replit /api/ path block](replit-api-path-block.md) — Replit's HTTPS proxy returns 502 for /api/* paths; use a custom prefix + Vite rewrite instead.
 - [Customer Account System](customer-auth-system.md) — Auth token pattern, OTP safety gate, issue endpoint authz, provider ordering, new DB tables.
 - [Firestore Migration](firestore-migration.md) — Full PostgreSQL→Firestore migration: collection layout, lazy proxy init, required composite indexes.
+- [Firebase key rotation](firebase-key-rotation.md) — UNAUTHENTICATED (gRPC 16) = revoked key, not a newline bug; diagnose via JWT signing test, fix by generating new key in Firebase Console.
