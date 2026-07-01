@@ -876,3 +876,71 @@ export const notificationsCol = {
     await batch.commit();
   },
 };
+
+// ─── Inventory ────────────────────────────────────────────────────────────────
+export interface InventoryItem {
+  id: string;
+  productName: string;
+  size: string;
+  stock: number;
+  threshold: number;
+  updatedAt: Date;
+}
+
+const SEED_INVENTORY: Omit<InventoryItem, "id" | "updatedAt">[] = [
+  { productName: "Prawn Pickle", size: "250g", stock: 4, threshold: 10 },
+  { productName: "Prawn Pickle", size: "500g", stock: 12, threshold: 10 },
+  { productName: "Chicken Pickle", size: "250g", stock: 15, threshold: 10 },
+  { productName: "Chicken Pickle", size: "500g", stock: 8, threshold: 10 },
+  { productName: "Squid Pickle", size: "250g", stock: 2, threshold: 10 },
+  { productName: "Squid Pickle", size: "500g", stock: 18, threshold: 10 },
+  { productName: "Mutton Pickle", size: "100g", stock: 7, threshold: 10 },
+  { productName: "Mutton Pickle", size: "250g", stock: 20, threshold: 10 },
+  { productName: "Nethili Pickle", size: "250g", stock: 11, threshold: 10 },
+  { productName: "Soorai Pickle", size: "250g", stock: 5, threshold: 10 },
+];
+
+export const inventoryCol = {
+  async findAll(): Promise<InventoryItem[]> {
+    const snap = await fdb.collection("inventory").orderBy("productName").get();
+    if (snap.empty) {
+      await this.seed();
+      const snap2 = await fdb.collection("inventory").orderBy("productName").get();
+      return snap2.docs.map((d) => {
+        const data = d.data() as Record<string, unknown>;
+        return {
+          id: d.id,
+          productName: data.productName as string,
+          size: data.size as string,
+          stock: data.stock as number,
+          threshold: data.threshold as number,
+          updatedAt: fromTs(data.updatedAt),
+        };
+      });
+    }
+    return snap.docs.map((d) => {
+      const data = d.data() as Record<string, unknown>;
+      return {
+        id: d.id,
+        productName: data.productName as string,
+        size: data.size as string,
+        stock: data.stock as number,
+        threshold: data.threshold as number,
+        updatedAt: fromTs(data.updatedAt),
+      };
+    });
+  },
+
+  async seed(): Promise<void> {
+    const batch = fdb.batch();
+    for (const item of SEED_INVENTORY) {
+      const ref = fdb.collection("inventory").doc();
+      batch.set(ref, { ...item, updatedAt: new Date() });
+    }
+    await batch.commit();
+  },
+
+  async update(id: string, stock: number): Promise<void> {
+    await fdb.collection("inventory").doc(id).update({ stock, updatedAt: new Date() });
+  },
+};

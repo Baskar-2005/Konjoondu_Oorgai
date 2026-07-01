@@ -11,7 +11,12 @@ import {
 import type { Order } from './types';
 import { STATUS_META } from './types';
 
-interface Props { orders: Order[] }
+const API_BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? '/ko-api';
+const COLORS = ['#2d6a4f', '#52b788', '#6b7c3a', '#8b5e3c', '#d97706'];
+
+interface Props { orders: Order[]; token: string }
+
+interface LowStockItem { id: string; productName: string; size: string; stock: number; threshold: number }
 
 function AnimatedCounter({ value, prefix = '', duration = 1200 }: { value: number; prefix?: string; duration?: number }) {
   const [display, setDisplay] = useState(0);
@@ -32,39 +37,101 @@ function AnimatedCounter({ value, prefix = '', duration = 1200 }: { value: numbe
   return <>{prefix}{display.toLocaleString('en-IN')}</>;
 }
 
-const REVENUE_DATA = [
-  { month: 'Jan', revenue: 18400, orders: 42 },
-  { month: 'Feb', revenue: 24200, orders: 58 },
-  { month: 'Mar', revenue: 31500, orders: 74 },
-  { month: 'Apr', revenue: 28900, orders: 67 },
-  { month: 'May', revenue: 37800, orders: 89 },
-  { month: 'Jun', revenue: 44200, orders: 102 },
-];
+function getMonthlyData(orders: Order[]) {
+  const now = new Date();
+  const months: { month: string; monthKey: string; revenue: number; orders: number }[] = [];
+  for (let i = 5; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    months.push({
+      month: d.toLocaleString('en-IN', { month: 'short' }),
+      monthKey: `${d.getFullYear()}-${d.getMonth()}`,
+      revenue: 0,
+      orders: 0,
+    });
+  }
+  for (const order of orders) {
+    if (order.status === 'cancelled' || order.status === 'refunded') continue;
+    const d = new Date(order.createdAt);
+    const key = `${d.getFullYear()}-${d.getMonth()}`;
+    const entry = months.find(m => m.monthKey === key);
+    if (entry) { entry.revenue += order.totalAmount; entry.orders += 1; }
+  }
+  return months.map(({ month, revenue, orders }) => ({ month, revenue, orders }));
+}
 
-const CATEGORY_DATA = [
-  { name: 'Prawn Pickle', value: 38, color: '#2d6a4f' },
-  { name: 'Chicken Pickle', value: 27, color: '#52b788' },
-  { name: 'Squid Pickle', value: 21, color: '#6b7c3a' },
-  { name: 'Mutton Pickle', value: 14, color: '#8b5e3c' },
-];
+function getWeeklyData(orders: Order[]) {
+  const DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+  const now = new Date();
+  const dayOfWeek = now.getDay();
+  const daysFromMon = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+  const thisMonday = new Date(now);
+  thisMonday.setDate(now.getDate() - daysFromMon);
+  thisMonday.setHours(0, 0, 0, 0);
+  const lastMonday = new Date(thisMonday);
+  lastMonday.setDate(thisMonday.getDate() - 7);
 
-const WEEKLY_DATA = [
-  { day: 'Mon', thisWeek: 12, lastWeek: 8 },
-  { day: 'Tue', thisWeek: 18, lastWeek: 14 },
-  { day: 'Wed', thisWeek: 9, lastWeek: 16 },
-  { day: 'Thu', thisWeek: 22, lastWeek: 11 },
-  { day: 'Fri', thisWeek: 31, lastWeek: 19 },
-  { day: 'Sat', thisWeek: 27, lastWeek: 23 },
-  { day: 'Sun', thisWeek: 14, lastWeek: 10 },
-];
+  const thisWeek = [0, 0, 0, 0, 0, 0, 0];
+  const lastWeek = [0, 0, 0, 0, 0, 0, 0];
+  for (const order of orders) {
+    const d = new Date(order.createdAt);
+    const idx = d.getDay() === 0 ? 6 : d.getDay() - 1;
+    if (d >= thisMonday) thisWeek[idx]++;
+    else if (d >= lastMonday) lastWeek[idx]++;
+  }
+  return DAY_NAMES.map((day, i) => ({ day, thisWeek: thisWeek[i], lastWeek: lastWeek[i] }));
+}
 
-export default function Dashboard({ orders }: Props) {
+function getCategoryData(orders: Order[]) {
+  const map = new Map<string, number>();
+  for (const order of orders) {
+    if (order.status === 'cancelled' || order.status === 'refunded') continue;
+    for (const item of order.items) {
+      map.set(item.productName, (map.get(item.productName) ?? 0) + item.price * item.quantity);
+    }
+  }
+  if (!map.size) return [];
+  const sorted = [...map.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5);
+  const total = sorted.reduce((s, [, v]) => s + v, 0);
+  return sorted.map(([name, rev], i) => ({
+    name,
+    value: Math.round((rev / total) * 100),
+    color: COLORS[i % COLORS.length],
+  }));
+}
+
+export default function Dashboard({ orders, token }: Props) {
+  const [lowStock, setLowStock] = useState<LowStockItem[]>([]);
+
+  useEffect(() => {
+    fetch(`${API_BASE}/admin/inventory`, { headers: { 'x-admin-token': token } })
+      .then(r => r.json())
+      .then(data => {
+        if (data.success) {
+          setLowStock(
+            (data.inventory as LowStockItem[])
+              .filter(i => i.stock < i.threshold)
+              .sort((a, b) => a.stock - b.stock)
+              .slice(0, 5)
+          );
+        }
+      })
+      .catch(() => {});
+  }, [token]);
+
   const revenue = orders.filter(o => o.status !== 'cancelled' && o.status !== 'refunded')
     .reduce((s, o) => s + o.totalAmount, 0);
   const pending = orders.filter(o => o.status === 'pending').length;
   const delivered = orders.filter(o => o.status === 'delivered').length;
   const cancelled = orders.filter(o => o.status === 'cancelled').length;
   const avgOrder = orders.length ? Math.round(revenue / orders.length) : 0;
+
+  const revenueData = getMonthlyData(orders);
+  const weeklyData = getWeeklyData(orders);
+  const categoryData = getCategoryData(orders);
+
+  const prevMonth = revenueData[revenueData.length - 2]?.revenue ?? 0;
+  const curMonth = revenueData[revenueData.length - 1]?.revenue ?? 0;
+  const monthTrend = prevMonth > 0 ? Math.round(((curMonth - prevMonth) / prevMonth) * 100) : 0;
 
   const statCards = [
     { label: "Today's Orders", value: orders.length, icon: ShoppingBag, color: '#2d6a4f', bg: '#d1fae5', trend: '+12%', up: true },
@@ -73,12 +140,6 @@ export default function Dashboard({ orders }: Props) {
     { label: 'Delivered', value: delivered, icon: CheckCircle2, color: '#16a34a', bg: '#dcfce7', trend: '+22%', up: true },
     { label: 'Cancelled', value: cancelled, icon: XCircle, color: '#dc2626', bg: '#fee2e2', trend: '+1%', up: false },
     { label: 'Avg Order Value', value: avgOrder, prefix: '₹', icon: TrendingUp, color: '#7c3aed', bg: '#ede9fe', trend: '+5.2%', up: true },
-  ];
-
-  const lowStock = [
-    { name: 'Prawn Pickle 250g', stock: 4, threshold: 10 },
-    { name: 'Squid Pickle 500g', stock: 2, threshold: 10 },
-    { name: 'Mutton Pickle 100g', stock: 7, threshold: 10 },
   ];
 
   return (
@@ -142,10 +203,12 @@ export default function Dashboard({ orders }: Props) {
               <p style={{ fontSize: 14, fontWeight: 700, color: '#0f2318', marginBottom: 2 }}>Revenue Overview</p>
               <p style={{ fontSize: 11, color: '#6b7c5a' }}>Monthly revenue trend</p>
             </div>
-            <span style={{ fontSize: 12, color: '#2d6a4f', fontWeight: 600, background: '#d1fae5', padding: '4px 10px', borderRadius: 20 }}>↑ 18% this month</span>
+            <span style={{ fontSize: 12, color: monthTrend >= 0 ? '#2d6a4f' : '#dc2626', fontWeight: 600, background: monthTrend >= 0 ? '#d1fae5' : '#fee2e2', padding: '4px 10px', borderRadius: 20 }}>
+              {monthTrend >= 0 ? '↑' : '↓'} {Math.abs(monthTrend)}% this month
+            </span>
           </div>
           <ResponsiveContainer width="100%" height={200}>
-            <AreaChart data={REVENUE_DATA}>
+            <AreaChart data={revenueData}>
               <defs>
                 <linearGradient id="revGrad" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="5%" stopColor="#2d6a4f" stopOpacity={0.25} />
@@ -166,25 +229,31 @@ export default function Dashboard({ orders }: Props) {
           style={{ borderRadius: 18, background: '#fff9f5', border: '1px solid rgba(139,94,60,0.08)', padding: 22, boxShadow: '0 2px 8px rgba(139,94,60,0.06)' }}>
           <p style={{ fontSize: 14, fontWeight: 700, color: '#0f2318', marginBottom: 2 }}>Top Categories</p>
           <p style={{ fontSize: 11, color: '#6b7c5a', marginBottom: 16 }}>Sales by product</p>
-          <ResponsiveContainer width="100%" height={160}>
-            <PieChart>
-              <Pie data={CATEGORY_DATA} cx="50%" cy="50%" innerRadius={45} outerRadius={70} paddingAngle={3} dataKey="value">
-                {CATEGORY_DATA.map((entry, index) => (
-                  <Cell key={index} fill={entry.color} />
+          {categoryData.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '40px 0', color: '#6b7c5a', fontSize: 12 }}>No order data yet</div>
+          ) : (
+            <>
+              <ResponsiveContainer width="100%" height={160}>
+                <PieChart>
+                  <Pie data={categoryData} cx="50%" cy="50%" innerRadius={45} outerRadius={70} paddingAngle={3} dataKey="value">
+                    {categoryData.map((entry, index) => (
+                      <Cell key={index} fill={entry.color} />
+                    ))}
+                  </Pie>
+                  <Tooltip formatter={(v: number) => [`${v}%`, 'Share']} contentStyle={{ borderRadius: 10, fontSize: 12 }} />
+                </PieChart>
+              </ResponsiveContainer>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 8 }}>
+                {categoryData.map(d => (
+                  <div key={d.name} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 11 }}>
+                    <span style={{ width: 8, height: 8, borderRadius: '50%', background: d.color, flexShrink: 0 }} />
+                    <span style={{ flex: 1, color: '#4a5568' }}>{d.name}</span>
+                    <span style={{ fontWeight: 700, color: d.color }}>{d.value}%</span>
+                  </div>
                 ))}
-              </Pie>
-              <Tooltip formatter={(v: number) => [`${v}%`, 'Share']} contentStyle={{ borderRadius: 10, fontSize: 12 }} />
-            </PieChart>
-          </ResponsiveContainer>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 8 }}>
-            {CATEGORY_DATA.map(d => (
-              <div key={d.name} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 11 }}>
-                <span style={{ width: 8, height: 8, borderRadius: '50%', background: d.color, flexShrink: 0 }} />
-                <span style={{ flex: 1, color: '#4a5568' }}>{d.name}</span>
-                <span style={{ fontWeight: 700, color: d.color }}>{d.value}%</span>
               </div>
-            ))}
-          </div>
+            </>
+          )}
         </motion.div>
       </div>
 
@@ -196,7 +265,7 @@ export default function Dashboard({ orders }: Props) {
           <p style={{ fontSize: 14, fontWeight: 700, color: '#0f2318', marginBottom: 2 }}>Weekly Orders</p>
           <p style={{ fontSize: 11, color: '#6b7c5a', marginBottom: 16 }}>This week vs last week</p>
           <ResponsiveContainer width="100%" height={180}>
-            <BarChart data={WEEKLY_DATA} barSize={10} barGap={4}>
+            <BarChart data={weeklyData} barSize={10} barGap={4}>
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(139,94,60,0.08)" />
               <XAxis dataKey="day" tick={{ fontSize: 11, fill: '#6b7c5a' }} axisLine={false} tickLine={false} />
               <YAxis tick={{ fontSize: 11, fill: '#6b7c5a' }} axisLine={false} tickLine={false} />
@@ -215,28 +284,35 @@ export default function Dashboard({ orders }: Props) {
             <AlertTriangle size={16} color="#d97706" />
             <p style={{ fontSize: 14, fontWeight: 700, color: '#0f2318' }}>Low Stock Alerts</p>
           </div>
-          {lowStock.map((item, i) => (
-            <motion.div key={item.name} initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.5 + i * 0.05 }}
-              style={{ padding: '12px 0', borderBottom: i < lowStock.length - 1 ? '1px solid rgba(139,94,60,0.08)' : 'none' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
-                <p style={{ fontSize: 12, fontWeight: 600, color: '#1a1a0f' }}>{item.name}</p>
-                <span style={{
-                  fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 20,
-                  background: item.stock <= 3 ? '#fee2e2' : '#fef3c7',
-                  color: item.stock <= 3 ? '#dc2626' : '#d97706',
-                }}>{item.stock} left</span>
-              </div>
-              <div style={{ background: 'rgba(139,94,60,0.1)', borderRadius: 20, height: 5 }}>
-                <motion.div initial={{ width: 0 }}
-                  animate={{ width: `${(item.stock / item.threshold) * 100}%` }}
-                  transition={{ delay: 0.6 + i * 0.1, duration: 0.8, ease: 'easeOut' }}
-                  style={{
-                    height: '100%', borderRadius: 20,
-                    background: item.stock <= 3 ? '#dc2626' : '#d97706',
-                  }} />
-              </div>
-            </motion.div>
-          ))}
+          {lowStock.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '24px 0', color: '#6b7c5a', fontSize: 12 }}>
+              <Package size={28} style={{ margin: '0 auto 8px', display: 'block', opacity: 0.25 }} />
+              All products well stocked
+            </div>
+          ) : (
+            lowStock.map((item, i) => (
+              <motion.div key={item.id} initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.5 + i * 0.05 }}
+                style={{ padding: '12px 0', borderBottom: i < lowStock.length - 1 ? '1px solid rgba(139,94,60,0.08)' : 'none' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
+                  <p style={{ fontSize: 12, fontWeight: 600, color: '#1a1a0f' }}>{item.productName} {item.size}</p>
+                  <span style={{
+                    fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 20,
+                    background: item.stock <= 3 ? '#fee2e2' : '#fef3c7',
+                    color: item.stock <= 3 ? '#dc2626' : '#d97706',
+                  }}>{item.stock} left</span>
+                </div>
+                <div style={{ background: 'rgba(139,94,60,0.1)', borderRadius: 20, height: 5 }}>
+                  <motion.div initial={{ width: 0 }}
+                    animate={{ width: `${Math.round((item.stock / item.threshold) * 100)}%` }}
+                    transition={{ delay: 0.6 + i * 0.1, duration: 0.8, ease: 'easeOut' }}
+                    style={{
+                      height: '100%', borderRadius: 20,
+                      background: item.stock <= 3 ? '#dc2626' : '#d97706',
+                    }} />
+                </div>
+              </motion.div>
+            ))
+          )}
         </motion.div>
       </div>
 

@@ -1,5 +1,5 @@
 import { Router, type IRouter, type Request, type Response } from "express";
-import { customersCol, ordersCol, reviewsCol } from "../lib/firestoreDb";
+import { customersCol, ordersCol, reviewsCol, inventoryCol } from "../lib/firestoreDb";
 
 const router: IRouter = Router();
 
@@ -95,6 +95,34 @@ router.patch("/admin/reviews/:customerId/:reviewId", async (req, res) => {
   }
   try {
     await reviewsCol.adminUpdate(customerId, reviewId, updates);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ success: false, message: String(err) });
+  }
+});
+
+// GET /api/admin/inventory — all inventory items (auto-seeds if empty)
+router.get("/admin/inventory", async (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  try {
+    const inventory = await inventoryCol.findAll();
+    res.json({ success: true, inventory });
+  } catch (err) {
+    res.status(500).json({ success: false, message: String(err) });
+  }
+});
+
+// PATCH /api/admin/inventory/:id — update stock count
+router.patch("/admin/inventory/:id", async (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  const { id } = req.params;
+  const { stock } = req.body as { stock?: number };
+  if (stock === undefined || typeof stock !== "number" || stock < 0) {
+    res.status(400).json({ success: false, message: "stock must be a non-negative number." });
+    return;
+  }
+  try {
+    await inventoryCol.update(id, stock);
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ success: false, message: String(err) });

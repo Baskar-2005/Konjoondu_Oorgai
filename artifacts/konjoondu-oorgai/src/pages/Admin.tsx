@@ -311,14 +311,14 @@ export default function AdminPage() {
 
   function renderPage() {
     switch (page) {
-      case 'dashboard':     return <Dashboard orders={orders} />;
+      case 'dashboard':     return <Dashboard orders={orders} token={token} />;
       case 'orders':        return <Orders orders={orders} token={token} loading={loading} onRefresh={() => fetchOrders(token)} onUpdateStatus={updateStatus} onSeedDemo={seedDemo} seeding={seeding} />;
       case 'create-order':  return <CreateOrder token={token} onSuccess={() => { fetchOrders(token); setPage('orders'); }} />;
       case 'products':      return <Products />;
       case 'inventory':     return <Inventory />;
       case 'customers':     return <Customers orders={orders} firestoreCustomers={customers} onRefresh={() => fetchCustomers(token)} />;
       case 'coupons':       return <Coupons />;
-      case 'analytics':     return <Analytics />;
+      case 'analytics':     return <Analytics orders={orders} />;
       case 'reviews':       return <Reviews token={token} apiBase={API_BASE} />;
       case 'delivery':      return <Delivery orders={orders} onUpdateStatus={updateStatus} />;
       case 'notifications': return <Notifications />;
