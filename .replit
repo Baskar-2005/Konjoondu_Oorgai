@@ -63,6 +63,8 @@ channel = "stable-25_05"
 
 [userenv.shared]
 ADMIN_SECRET = "ko-admin-2026"
+RAZORPAY_KEY_ID = "rzp_live_T87O9Kakyemc8L"
+TELEGRAM_CHAT_ID = "917098451"
 
 [[ports]]
 localPort = 3000

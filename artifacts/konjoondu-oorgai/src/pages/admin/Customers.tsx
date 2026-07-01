@@ -67,27 +67,66 @@ function buildCustomers(orders: Order[]): Customer[] {
   return Array.from(map.values());
 }
 
-interface Props {
-  orders?: Order[];
+interface FirestoreCustomer {
+  id: string;
+  name: string;
+  phone: string;
+  email: string;
+  isVerified: boolean;
+  rewardPoints: number;
+  createdAt: string;
+  orderCount: number;
+  lifetimeValue: number;
+  lastOrderAt: string | null;
 }
 
-export default function Customers({ orders = [] }: Props) {
-  const [baseCustomers, setBaseCustomers] = useState<Customer[]>(() => buildCustomers(orders));
+interface Props {
+  orders?: Order[];
+  firestoreCustomers?: FirestoreCustomer[];
+  onRefresh?: () => void;
+}
+
+export default function Customers({ orders = [], firestoreCustomers = [], onRefresh }: Props) {
   const [search, setSearch] = useState('');
   const [tierFilter, setTierFilter] = useState<string>('all');
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [noteInput, setNoteInput] = useState('');
   const [editNote, setEditNote] = useState<{ id: string; noteId: number; text: string } | null>(null);
+  const [notes, setNotes] = useState<Record<string, CustomerNote[]>>({});
 
-  React.useEffect(() => {
+  // Merge Firestore registered customers with order-derived stats
+  const baseCustomers = React.useMemo<Customer[]>(() => {
     const fromOrders = buildCustomers(orders);
-    setBaseCustomers(prev => {
-      return fromOrders.map(c => {
-        const existing = prev.find(p => p.id === c.id);
-        return existing ? { ...c, notes: existing.notes } : c;
-      });
+    const orderMap = new Map(fromOrders.map(c => [c.phone, c]));
+
+    // Start from Firestore customers (real registered users)
+    const merged = firestoreCustomers.map(fc => {
+      const fromOrder = orderMap.get(fc.phone);
+      return {
+        id: fc.id,
+        name: fc.name || fromOrder?.name || '',
+        phone: fc.phone,
+        email: fc.email || fromOrder?.email || '',
+        address: fromOrder?.address || '',
+        orders: fc.orderCount,
+        lifetime: fc.lifetimeValue,
+        lastOrder: fc.lastOrderAt ?? fc.createdAt,
+        tier: getTier(fc.lifetimeValue),
+        notes: notes[fc.id] ?? [],
+        orderHistory: fromOrder?.orderHistory ?? [],
+      } as Customer;
     });
-  }, [orders]);
+
+    // Also include any order-derived customers not in Firestore (e.g. guest orders)
+    for (const oc of fromOrders) {
+      const alreadyPresent = merged.some(m => m.phone === oc.phone);
+      if (!alreadyPresent) {
+        merged.push({ ...oc, notes: notes[oc.id] ?? [] });
+      }
+    }
+
+    return merged;
+  }, [firestoreCustomers, orders, notes]);
 
   const filtered = baseCustomers.filter(c => {
     const q = search.toLowerCase();
@@ -104,23 +143,21 @@ export default function Customers({ orders = [] }: Props) {
 
   const addNote = (customerId: string) => {
     if (!noteInput.trim()) return;
-    setBaseCustomers(prev => prev.map(c => c.id === customerId ? {
-      ...c,
-      notes: [...c.notes, { id: Date.now(), text: noteInput.trim(), date: new Date().toLocaleDateString('en-IN') }],
-    } : c));
+    const note: CustomerNote = { id: Date.now(), text: noteInput.trim(), date: new Date().toLocaleDateString('en-IN') };
+    setNotes(prev => ({ ...prev, [customerId]: [...(prev[customerId] ?? []), note] }));
     setNoteInput('');
   };
 
   const deleteNote = (customerId: string, noteId: number) => {
-    setBaseCustomers(prev => prev.map(c => c.id === customerId ? { ...c, notes: c.notes.filter(n => n.id !== noteId) } : c));
+    setNotes(prev => ({ ...prev, [customerId]: (prev[customerId] ?? []).filter(n => n.id !== noteId) }));
   };
 
   const saveEditNote = () => {
     if (!editNote) return;
-    setBaseCustomers(prev => prev.map(c => c.id === editNote.id ? {
-      ...c,
-      notes: c.notes.map(n => n.id === editNote.noteId ? { ...n, text: editNote.text } : n),
-    } : c));
+    setNotes(prev => ({
+      ...prev,
+      [editNote.id]: (prev[editNote.id] ?? []).map(n => n.id === editNote.noteId ? { ...n, text: editNote.text } : n),
+    }));
     setEditNote(null);
   };
 

@@ -5,6 +5,7 @@ import paymentsRouter from "./payments";
 import emailRouter from "./email";
 import authRouter from "./auth";
 import customersRouter from "./customers";
+import adminRouter from "./admin";
 
 const router: IRouter = Router();
 
@@ -14,5 +15,6 @@ router.use(customersRouter);
 router.use(ordersRouter);
 router.use(paymentsRouter);
 router.use(emailRouter);
+router.use(adminRouter);
 
 export default router;

@@ -195,6 +195,11 @@ function toCustomer(id: string, d: Record<string, unknown>): Customer {
 }
 
 export const customersCol = {
+  async findAll(): Promise<Customer[]> {
+    const snap = await fdb.collection("customers").orderBy("createdAt", "desc").get();
+    return snap.docs.map((d) => toCustomer(d.id, d.data() as Record<string, unknown>));
+  },
+
   async findById(id: string): Promise<Customer | null> {
     const snap = await fdb.collection("customers").doc(id).get();
     if (!snap.exists) return null;
@@ -678,6 +683,46 @@ export const wishlistCol = {
 };
 
 export const reviewsCol = {
+  /** Admin: fetch all reviews across all customers via collection-group query. */
+  async findAllAdmin(): Promise<Review[]> {
+    const snap = await fdb.collectionGroup("reviews").get();
+    return snap.docs
+      .map((d) => {
+        const data = d.data() as Record<string, unknown>;
+        return {
+          id: d.id,
+          customerId: (data.customerId as string) ?? "",
+          orderId: (data.orderId as string) ?? "",
+          productId: (data.productId as string) ?? "",
+          productName: (data.productName as string) ?? "",
+          rating: (data.rating as number) ?? 0,
+          title: (data.title as string) ?? "",
+          body: (data.body as string) ?? "",
+          images: (data.images as string[]) ?? [],
+          status: (data.status as string) ?? "pending",
+          adminReply: (data.adminReply as string) ?? "",
+          helpfulCount: (data.helpfulCount as number) ?? 0,
+          createdAt: fromTs(data.createdAt),
+          updatedAt: fromTs(data.updatedAt),
+        } as Review;
+      })
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+  },
+
+  /** Admin: update status and/or reply on any customer's review. */
+  async adminUpdate(
+    customerId: string,
+    reviewId: string,
+    updates: { status?: string; adminReply?: string },
+  ): Promise<void> {
+    await fdb
+      .collection("customers")
+      .doc(customerId)
+      .collection("reviews")
+      .doc(reviewId)
+      .update({ ...updates, updatedAt: new Date() });
+  },
+
   async findByCustomer(customerId: string): Promise<Review[]> {
     const snap = await fdb
       .collection("customers")

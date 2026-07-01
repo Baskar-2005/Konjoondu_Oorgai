@@ -191,10 +191,24 @@ function LoginScreen({ onLogin }: { onLogin: (token: string, orders: Order[]) =>
 }
 
 // ─── Main Admin App ───────────────────────────────────────────────────────────
+interface FirestoreCustomer {
+  id: string;
+  name: string;
+  phone: string;
+  email: string;
+  isVerified: boolean;
+  rewardPoints: number;
+  createdAt: string;
+  orderCount: number;
+  lifetimeValue: number;
+  lastOrderAt: string | null;
+}
+
 export default function AdminPage() {
   const [token, setToken] = useState(() => sessionStorage.getItem('ko_admin_token') || '');
   const [loggedIn, setLoggedIn] = useState(false);
   const [orders, setOrders] = useState<Order[]>([]);
+  const [customers, setCustomers] = useState<FirestoreCustomer[]>([]);
   const [loading, setLoading] = useState(false);
   const [page, setPage] = useState<AdminPage>('dashboard');
   const [search, setSearch] = useState('');
@@ -217,8 +231,20 @@ export default function AdminPage() {
     }
   }, []);
 
+  const fetchCustomers = useCallback(async (tok: string) => {
+    try {
+      const res = await fetch(`${API_BASE}/admin/customers`, {
+        headers: { 'x-admin-token': tok },
+      });
+      const data = await res.json();
+      if (data.success) setCustomers(data.customers);
+    } catch { /* silent */ }
+  }, []);
+
   useEffect(() => {
-    if (token) fetchOrders(token).then(() => setLoggedIn(true));
+    if (token) {
+      Promise.all([fetchOrders(token), fetchCustomers(token)]).then(() => setLoggedIn(true));
+    }
   }, []);
 
   const toggleDark = () => {
@@ -290,10 +316,10 @@ export default function AdminPage() {
       case 'create-order':  return <CreateOrder token={token} onSuccess={() => { fetchOrders(token); setPage('orders'); }} />;
       case 'products':      return <Products />;
       case 'inventory':     return <Inventory />;
-      case 'customers':     return <Customers orders={orders} />;
+      case 'customers':     return <Customers orders={orders} firestoreCustomers={customers} onRefresh={() => fetchCustomers(token)} />;
       case 'coupons':       return <Coupons />;
       case 'analytics':     return <Analytics />;
-      case 'reviews':       return <Reviews />;
+      case 'reviews':       return <Reviews token={token} apiBase={API_BASE} />;
       case 'delivery':      return <Delivery orders={orders} onUpdateStatus={updateStatus} />;
       case 'notifications': return <Notifications />;
       case 'settings':      return <Settings />;
