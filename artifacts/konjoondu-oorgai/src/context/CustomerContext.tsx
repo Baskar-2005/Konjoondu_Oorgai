@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 
-const API_BASE = '/ko-api';
+const API_BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? '/ko-api';
 
 export interface CustomerAddress {
   id: number;

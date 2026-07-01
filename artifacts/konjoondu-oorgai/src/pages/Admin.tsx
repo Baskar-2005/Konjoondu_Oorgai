@@ -18,7 +18,7 @@ import CreateOrder from './admin/CreateOrder';
 import ScanStation from './admin/ScanStation';
 import type { Order, OrderStatus, AdminPage } from './admin/types';
 
-const API_BASE = '/ko-api';
+const API_BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? '/ko-api';
 
 const DEMO_ORDERS = [
   {

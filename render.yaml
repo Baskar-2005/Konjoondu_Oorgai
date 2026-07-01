@@ -1,0 +1,50 @@
+services:
+  - type: web
+    name: ko-api
+    runtime: node
+    region: singapore
+    plan: free
+    rootDir: .
+    buildCommand: >
+      corepack enable &&
+      corepack prepare pnpm@10.15.0 --activate &&
+      pnpm install --no-frozen-lockfile &&
+      pnpm --filter @workspace/api-server run build
+    startCommand: node --enable-source-maps artifacts/api-server/dist/index.mjs
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: "10000"
+      - key: LOG_LEVEL
+        value: info
+
+      # ── Database ──────────────────────────────────────────────
+      - key: DATABASE_URL
+        sync: false          # set manually in Render dashboard
+
+      # ── Payments (Razorpay) ──────────────────────────────────
+      - key: RAZORPAY_KEY_ID
+        sync: false
+      - key: RAZORPAY_KEY_SECRET
+        sync: false
+
+      # ── Email (Nodemailer / Gmail) ────────────────────────────
+      - key: EMAIL_USER
+        sync: false
+      - key: EMAIL_APP_PASSWORD
+        sync: false
+
+      # ── Admin & Notifications ────────────────────────────────
+      - key: ADMIN_SECRET
+        sync: false
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: TELEGRAM_CHAT_ID
+        sync: false
+
+      # ── CORS ─────────────────────────────────────────────────
+      # Set to your Netlify domain, e.g. https://konjoondu-oorgai.netlify.app
+      - key: CORS_ORIGIN
+        sync: false

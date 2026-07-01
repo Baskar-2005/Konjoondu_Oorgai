@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Plus, Trash2, ShoppingBag, User, Phone, Mail, MapPin, CreditCard, CheckCircle, AlertCircle, ChevronDown } from 'lucide-react';
 
-const API_BASE = '/ko-api';
+const API_BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? '/ko-api';
 
 const PRODUCTS = [
   { id: 1, name: 'Prawn Pickle',   sizes: [{ label: '100g', price: 120 }, { label: '250g', price: 220 }, { label: '500g', price: 390 }] },

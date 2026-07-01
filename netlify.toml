@@ -6,6 +6,8 @@ install = "corepack enable && corepack prepare pnpm@10.15.0 --activate && pnpm i
 [build.environment]
   NODE_VERSION = "20"
   PNPM_VERSION = "10.15.0"
+  # VITE_API_URL — set this in Netlify dashboard (Site settings → Environment variables)
+  # Value: https://<your-render-service>.onrender.com/api
 
 [[redirects]]
   from = "/*"
