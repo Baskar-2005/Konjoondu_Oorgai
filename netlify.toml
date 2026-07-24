@@ -1,0 +1,27 @@
+[build]
+install = ""
+  command = "npx pnpm@10.15.0 install --no-frozen-lockfile && npx pnpm@10.15.0 --filter @workspace/konjoondu-oorgai run build"
+  publish = "artifacts/konjoondu-oorgai/dist/public"
+
+[build.environment]
+  NODE_VERSION = "20"
+  PNPM_VERSION = "10.15.0"
+
+# ── API proxy ────────────────────────────────────────────────────────────────
+# All /ko-api/* requests from the frontend are forwarded to the Render backend.
+# Replace ko-api.onrender.com with your actual Render service domain if different.
+# This proxy runs at the CDN edge so no VITE_API_URL build variable is needed.
+[[redirects]]
+  from   = "/ko-api/*"
+  to     = "https://konjoondu-oorgai.onrender.com/api/:splat"
+  status = 200
+  force  = true
+
+  [redirects.headers]
+    X-Forwarded-Host = "konjoondu-oorgai.onrender.com"
+
+# ── SPA fallback ─────────────────────────────────────────────────────────────
+[[redirects]]
+  from = "/*"
+  to   = "/index.html"
+  status = 200

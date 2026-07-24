@@ -1,0 +1,106 @@
+We are **not** integrating Shiprocket, Ship24, or any tracking API at this stage. This is a small business workflow where the company manually ships parcels through courier services such as DTDC, Delhivery, Blue Dart, India Post, etc.
+
+### Required Workflow
+
+#### 1. Customer Places an Order
+
+* Customer places an order.
+* Payment is completed.
+* Order status becomes **Order Confirmed**.
+* Show the order timeline:
+
+  * ✅ Payment Successful
+  * ✅ Order Confirmed
+  * 🟡 Your Oorgai is Being Packed
+
+Display a **Track Your Order** button.
+
+---
+
+#### 2. Before Shipment
+
+Initially, no tracking number exists because the parcel has not yet been handed over to the courier.
+
+When the customer clicks **Track Your Order**, show a dedicated tracking page with the following message:
+
+**Your Oorgai is being carefully packed. Once your parcel is shipped, your tracking details will be available here. We will notify you as soon as your shipment is ready to track.**
+
+Do **not** show any tracking number or courier information yet.
+
+---
+
+#### 3. Admin Dashboard
+
+Add a Shipment Management section for every order.
+
+Fields:
+
+* Courier Partner (Dropdown)
+
+  * DTDC
+  * Delhivery
+  * Blue Dart
+  * India Post
+  * XpressBees
+  * Other
+
+* Tracking Number (Text Box)
+
+* Save Shipment Details
+
+When the admin saves these details:
+
+* Update the order status to **Shipped**.
+* Save the courier partner and tracking number in the database.
+* Mark the order as tracking available.
+* Send a notification to the customer saying:
+  **"Your order has been shipped. You can now track your shipment."**
+
+---
+
+#### 4. Customer After Shipment
+
+If tracking details are available, the tracking page should display:
+
+* Order Status: Shipped
+* Courier Partner
+* Tracking Number
+* A **Track on Courier Website** button
+
+---
+
+#### 5. Redirect Logic
+
+When the customer clicks **Track on Courier Website**, redirect them to the official tracking page of the selected courier by appending the tracking number.
+
+Examples:
+
+* DTDC → Official DTDC tracking URL + Tracking Number
+* Delhivery → Official Delhivery tracking URL + Tracking Number
+* Blue Dart → Official Blue Dart tracking URL + Tracking Number
+* India Post → Official India Post tracking URL + Tracking Number
+
+Use the official tracking URL for each courier.
+
+---
+
+### Database Changes
+
+Add the following fields to the Orders table:
+
+* courier_partner
+* tracking_number
+* tracking_available (boolean)
+* shipped_at
+
+---
+
+### Important
+
+* Do not integrate Shiprocket.
+* Do not integrate Ship24.
+* Do not call any external tracking APIs.
+* Do not poll tracking status.
+* Do not use webhooks.
+
+This feature should work entirely by allowing the admin to manually enter the courier partner and tracking number after shipping the parcel. Customers will be redirected to the courier's official tracking page to view live shipment updates.

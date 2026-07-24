@@ -1,0 +1,591 @@
+import React, { useCallback, useRef, useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Package, ChevronDown, ChevronUp, Truck, CheckCircle2, Clock, X, MapPin, CreditCard, RefreshCw, AlertCircle, Download, Star, ExternalLink } from 'lucide-react';
+import { useCustomer } from '@/context/CustomerContext';
+import { useToast } from '@/hooks/use-toast';
+import { usePolling } from '@/hooks/usePolling';
+import { useIsMobile } from '@/hooks/use-mobile';
+
+const PRIMARY = 'hsl(4,60%,44%)';
+
+const TRACKING_STAGES = [
+  { status: 'pending',   label: 'Order Placed', icon: '📋', color: '#f59e0b' },
+  { status: 'confirmed', label: 'Confirmed',    icon: '✅', color: '#3b82f6' },
+  { status: 'packed',    label: 'Packed',       icon: '📦', color: '#8b5cf6' },
+  { status: 'shipped',   label: 'Shipped',      icon: '🚚', color: '#06b6d4' },
+  { status: 'delivered', label: 'Delivered',    icon: '🎉', color: '#22c55e' },
+];
+
+const STATUS_COLORS: Record<string, string> = {
+  pending: '#f59e0b', confirmed: '#3b82f6', packed: '#8b5cf6',
+  shipped: '#06b6d4', out_for_delivery: '#f97316', delivered: '#22c55e',
+  cancelled: '#ef4444', returned: '#6b7280', refunded: '#10b981',
+};
+
+const STATUS_EMOJI: Record<string, string> = {
+  pending: '📋', confirmed: '✅', packed: '📦', shipped: '🚚',
+  out_for_delivery: '🛵', delivered: '🎉', cancelled: '❌', returned: '↩️', refunded: '💚',
+};
+
+interface TrackingStep { id: number; status: string; label: string; description: string; timestamp: string; completed: boolean; }
+interface OrderItem { productId: string; name: string; size: string; price: number; quantity: number; }
+interface Order {
+  id: string; status: string; totalAmount: number; createdAt: string;
+  customerName: string; customerPhone: string; customerEmail: string; shippingAddress: string;
+  courierName?: string; trackingId?: string; estimatedDelivery?: string;
+  items: OrderItem[]; trackingSteps: TrackingStep[];
+  razorpayPaymentId?: string;
+}
+
+function TrackingTimeline({ order }: { order: Order }) {
+  const displayStatus = order.status === 'out_for_delivery' ? 'shipped' : order.status;
+  const currentIdx = TRACKING_STAGES.findIndex(s => s.status === displayStatus);
+  const isTerminal = ['cancelled', 'returned', 'refunded'].includes(order.status);
+
+  if (isTerminal) {
+    return (
+      <div style={{ padding: '16px', background: 'rgba(239,68,68,0.06)', borderRadius: 14, border: '1px solid rgba(239,68,68,0.2)', marginTop: 16 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <X size={16} color="#ef4444" />
+          <span style={{ fontWeight: 700, color: '#ef4444', fontSize: 14, textTransform: 'capitalize' }}>{order.status}</span>
+        </div>
+        {order.trackingSteps.slice(-1).map(s => (
+          <p key={s.id} style={{ fontSize: 12, color: '#8b6344', marginTop: 4 }}>{s.description}</p>
+        ))}
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ marginTop: 20 }}>
+      <h4 style={{ fontSize: 12, fontWeight: 800, color: '#8b6344', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 16 }}>Live Tracking</h4>
+      <div style={{ position: 'relative' }}>
+        <div style={{ position: 'absolute', left: 17, top: 0, bottom: 0, width: 2, background: 'rgba(139,94,60,0.1)', borderRadius: 2 }} />
+        <motion.div
+          initial={{ scaleY: 0, originY: 0 }}
+          animate={{ scaleY: currentIdx >= 0 ? (currentIdx + 1) / TRACKING_STAGES.length : 0 }}
+          transition={{ duration: 1, ease: [0.22, 1, 0.36, 1], delay: 0.2 }}
+          style={{ position: 'absolute', left: 17, top: 0, bottom: 0, width: 2, background: `linear-gradient(to bottom, ${PRIMARY}, ${TRACKING_STAGES[Math.max(0, currentIdx)].color})`, borderRadius: 2 }}
+        />
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+          {TRACKING_STAGES.map((stage, i) => {
+            const isCompleted = i <= currentIdx;
+            const isCurrent = i === currentIdx;
+            const dbStep = order.trackingSteps.find(s => s.status === stage.status);
+            return (
+              <div key={stage.status} style={{ display: 'flex', alignItems: 'flex-start', gap: 16, position: 'relative' }}>
+                <motion.div
+                  animate={isCurrent ? { scale: [1, 1.15, 1] } : {}}
+                  transition={isCurrent ? { duration: 1.5, repeat: Infinity, ease: 'easeInOut' } : {}}
+                  style={{ width: 36, height: 36, borderRadius: '50%', flexShrink: 0, zIndex: 1, background: isCompleted ? stage.color : 'rgba(139,94,60,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, boxShadow: isCurrent ? `0 0 0 6px ${stage.color}20` : 'none', transition: 'all 0.4s' }}>
+                  {isCompleted ? (isCurrent ? stage.icon : <CheckCircle2 size={16} color="#fff" />) : <span style={{ fontSize: 12 }}>○</span>}
+                </motion.div>
+                <div style={{ paddingTop: 6 }}>
+                  <div style={{ fontWeight: isCurrent ? 800 : 600, fontSize: 13, color: isCompleted ? '#1a0f08' : '#c4a882' }}>
+                    {stage.label}
+                    {isCurrent && <span style={{ marginLeft: 6, fontSize: 10, background: stage.color, color: '#fff', padding: '2px 6px', borderRadius: 20, fontWeight: 700 }}>NOW</span>}
+                  </div>
+                  {dbStep && <div style={{ fontSize: 11, color: '#8b6344', marginTop: 2 }}>{new Date(dbStep.timestamp).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</div>}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function OrderCard({ order, onRaiseIssue, isNew }: { order: Order; onRaiseIssue: (orderId: string) => void; isNew?: boolean }) {
+  const isMobile = useIsMobile();
+  const [expanded, setExpanded] = useState(false);
+  const [reviewTarget, setReviewTarget] = useState<OrderItem | null>(null);
+  const { apiBase, token } = useCustomer();
+  const color = STATUS_COLORS[order.status] || '#8b6344';
+
+  return (
+    <motion.div layout
+      initial={isNew ? { opacity: 0, y: -16, scale: 0.98 } : false}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      transition={{ duration: 0.3 }}
+      style={{ background: '#fff', borderRadius: 20, border: `1px solid ${isNew ? `${color}40` : 'rgba(139,94,60,0.1)'}`, overflow: 'hidden', boxShadow: isNew ? `0 4px 20px ${color}20` : '0 2px 12px rgba(139,94,60,0.06)' }}>
+      <button onClick={() => setExpanded(e => !e)}
+        style={{ width: '100%', padding: '18px 20px', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', fontFamily: 'Poppins,sans-serif' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div style={{ width: 44, height: 44, borderRadius: 13, background: `${color}15`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <Package size={20} color={color} />
+            </div>
+            <div>
+              <div style={{ fontWeight: 800, fontSize: 14, color: '#1a0f08' }}>{order.id}</div>
+              <div style={{ fontSize: 12, color: '#8b6344', marginTop: 2 }}>
+                {new Date(order.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}
+              </div>
+            </div>
+          </div>
+          <div style={{ textAlign: 'right', flexShrink: 0 }}>
+            <div style={{ fontWeight: 900, fontSize: 16, color: PRIMARY }}>₹{order.totalAmount.toLocaleString('en-IN')}</div>
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 10px', borderRadius: 20, background: `${color}15`, marginTop: 4 }}>
+              <span style={{ fontSize: 10, fontWeight: 700, color, textTransform: 'capitalize' }}>
+                {STATUS_EMOJI[order.status] ?? ''} {order.status.replace(/_/g, ' ')}
+              </span>
+            </div>
+          </div>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 10 }}>
+          <div style={{ fontSize: 12, color: '#8b6344' }}>
+            {order.items.slice(0, 2).map(i => `${i.name} (${i.size})`).join(', ')}
+            {order.items.length > 2 ? ` +${order.items.length - 2} more` : ''}
+          </div>
+          <span style={{ color: '#8b6344' }}>{expanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}</span>
+        </div>
+      </button>
+
+      <AnimatePresence>
+        {expanded && (
+          <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.3 }}
+            style={{ overflow: 'hidden' }}>
+            <div style={{ padding: '0 20px 20px', borderTop: '1px solid rgba(139,94,60,0.08)' }}>
+              <div style={{ paddingTop: 16 }}>
+                <h4 style={{ fontSize: 12, fontWeight: 800, color: '#8b6344', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 12 }}>Items Ordered</h4>
+                {order.items.map((item, i) => (
+                  <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderBottom: i < order.items.length - 1 ? '1px solid rgba(139,94,60,0.06)' : 'none' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <div style={{ width: 36, height: 36, borderRadius: 10, background: `${PRIMARY}15`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 }}>🥒</div>
+                      <div>
+                        <div style={{ fontSize: 13, fontWeight: 700, color: '#1a0f08' }}>{item.name}</div>
+                        <div style={{ fontSize: 11, color: '#8b6344' }}>{item.size} · Qty {item.quantity}</div>
+                      </div>
+                    </div>
+                    <div style={{ fontWeight: 800, fontSize: 14, color: PRIMARY }}>₹{item.price * item.quantity}</div>
+                  </div>
+                ))}
+                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '12px 0 0', fontWeight: 900, fontSize: 15, borderTop: '1px solid rgba(139,94,60,0.1)', marginTop: 4 }}>
+                  <span>Total</span>
+                  <span style={{ color: PRIMARY }}>₹{order.totalAmount.toLocaleString('en-IN')}</span>
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 10, marginTop: 16 }}>
+                <div style={{ padding: '12px 14px', borderRadius: 12, background: '#faf8f5', border: '1px solid rgba(139,94,60,0.1)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+                    <MapPin size={12} color="#8b6344" />
+                    <span style={{ fontSize: 10, fontWeight: 800, color: '#8b6344', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Ship To</span>
+                  </div>
+                  <p style={{ fontSize: 12, color: '#1a0f08', lineHeight: 1.5 }}>{order.shippingAddress}</p>
+                </div>
+                <div style={{ padding: '12px 14px', borderRadius: 12, background: '#faf8f5', border: '1px solid rgba(139,94,60,0.1)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+                    <CreditCard size={12} color="#8b6344" />
+                    <span style={{ fontSize: 10, fontWeight: 800, color: '#8b6344', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Payment</span>
+                  </div>
+                  <p style={{ fontSize: 12, color: '#1a0f08' }}>{order.razorpayPaymentId ? 'Razorpay' : 'Pending'}</p>
+                  {order.razorpayPaymentId && <p style={{ fontSize: 10, color: '#8b6344', marginTop: 2 }}>{order.razorpayPaymentId}</p>}
+                </div>
+              </div>
+
+              {order.courierName && (
+                <div style={{ marginTop: 10, padding: '12px 14px', borderRadius: 12, background: 'rgba(6,182,212,0.06)', border: '1px solid rgba(6,182,212,0.2)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <Truck size={14} color="#06b6d4" />
+                    <span style={{ fontSize: 13, fontWeight: 700, color: '#0e7490' }}>{order.courierName}</span>
+                    {order.trackingId && <span style={{ fontSize: 12, color: '#0e7490' }}>· {order.trackingId}</span>}
+                  </div>
+                  {order.estimatedDelivery && (
+                    <p style={{ fontSize: 12, color: '#0e7490', marginTop: 4 }}>
+                      <Clock size={10} style={{ display: 'inline', marginRight: 4 }} />Est. delivery: {order.estimatedDelivery}
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {order.status === 'packed' && (
+                <div style={{ marginTop: 12, padding: '12px 16px', borderRadius: 14, background: 'rgba(139,92,246,0.08)', border: '1.5px solid rgba(139,92,246,0.25)', display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <span style={{ fontSize: 24 }}>🍶</span>
+                  <div>
+                    <p style={{ fontWeight: 800, fontSize: 13, color: '#6d28d9' }}>Oorgai Bottle Ready Aagitu Iruku!</p>
+                    <p style={{ fontSize: 11, color: '#8b5cf6', marginTop: 2 }}>Your order is packed and ready to ship soon.</p>
+                  </div>
+                </div>
+              )}
+
+              <TrackingTimeline order={order} />
+
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 20 }}>
+                {!['delivered', 'cancelled', 'returned', 'refunded'].includes(order.status) && (
+                  <button onClick={() => onRaiseIssue(order.id)}
+                    style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 14px', borderRadius: 10, border: '1px solid rgba(239,68,68,0.3)', background: 'rgba(239,68,68,0.05)', color: '#ef4444', fontWeight: 700, fontSize: 12, cursor: 'pointer', fontFamily: 'Poppins,sans-serif' }}>
+                    <AlertCircle size={13} /> Raise Issue
+                  </button>
+                )}
+                {order.trackingId && ['shipped', 'out_for_delivery'].includes(order.status) && (
+                  <button onClick={() => window.open(getTrackingUrl(order.courierName ?? '', order.trackingId!), '_blank')}
+                    style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 14px', borderRadius: 10, border: '1px solid rgba(6,182,212,0.3)', background: 'rgba(6,182,212,0.06)', color: '#0e7490', fontWeight: 700, fontSize: 12, cursor: 'pointer', fontFamily: 'Poppins,sans-serif' }}>
+                    <ExternalLink size={13} /> Track Order
+                  </button>
+                )}
+                <button onClick={() => window.location.href = '/products'}
+                  style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 14px', borderRadius: 10, border: `1px solid ${PRIMARY}40`, background: `${PRIMARY}08`, color: PRIMARY, fontWeight: 700, fontSize: 12, cursor: 'pointer', fontFamily: 'Poppins,sans-serif' }}>
+                  <RefreshCw size={13} /> Buy Again
+                </button>
+                <button style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 14px', borderRadius: 10, border: '1px solid rgba(139,94,60,0.2)', background: 'rgba(139,94,60,0.04)', color: '#8b6344', fontWeight: 700, fontSize: 12, cursor: 'pointer', fontFamily: 'Poppins,sans-serif' }}>
+                  <Download size={13} /> Invoice
+                </button>
+              </div>
+
+              {/* Write Review — for delivered orders */}
+              {order.status === 'delivered' && order.items.length > 0 && (
+                <div style={{ marginTop: 16, paddingTop: 16, borderTop: '1px solid rgba(139,94,60,0.08)' }}>
+                  <h4 style={{ fontSize: 12, fontWeight: 800, color: '#8b6344', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 10 }}>Rate Your Products</h4>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    {order.items.map((item, i) => (
+                      <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', borderRadius: 12, background: '#faf8f5', border: '1px solid rgba(139,94,60,0.1)' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <span style={{ fontSize: 18 }}>🥒</span>
+                          <div>
+                            <p style={{ fontSize: 12, fontWeight: 700, color: '#1a0f08' }}>{item.name}</p>
+                            <p style={{ fontSize: 11, color: '#8b6344' }}>{item.size}</p>
+                          </div>
+                        </div>
+                        <button onClick={() => setReviewTarget(item)}
+                          style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '7px 12px', borderRadius: 10, border: `1px solid ${PRIMARY}40`, background: `${PRIMARY}08`, color: PRIMARY, fontWeight: 700, fontSize: 12, cursor: 'pointer', fontFamily: 'Poppins,sans-serif' }}>
+                          <Star size={12} fill={PRIMARY} color={PRIMARY} /> Write Review
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {reviewTarget && token && (
+          <ReviewModal order={order} item={reviewTarget} onClose={() => setReviewTarget(null)} apiBase={apiBase} token={token} />
+        )}
+      </AnimatePresence>
+    </motion.div>
+  );
+}
+
+// ── Star Rating ────────────────────────────────────────────────────────────────
+function StarRating({ value, onChange }: { value: number; onChange?: (v: number) => void }) {
+  const [hover, setHover] = useState(0);
+  return (
+    <div style={{ display: 'flex', gap: 4 }}>
+      {[1,2,3,4,5].map(i => (
+        <button key={i} type="button"
+          onClick={() => onChange?.(i)}
+          onMouseEnter={() => onChange && setHover(i)}
+          onMouseLeave={() => onChange && setHover(0)}
+          style={{ background: 'none', border: 'none', padding: 2, cursor: onChange ? 'pointer' : 'default' }}>
+          <Star size={22} fill={i <= (hover || value) ? '#f59e0b' : 'none'} color={i <= (hover || value) ? '#f59e0b' : 'rgba(139,94,60,0.3)'} />
+        </button>
+      ))}
+    </div>
+  );
+}
+
+// ── Tracking URL helper ────────────────────────────────────────────────────────
+function getTrackingUrl(courierName: string, trackingId: string): string {
+  const name = courierName.toLowerCase();
+  if (name.includes('dtdc')) return `https://www.dtdc.in/tracking.asp?Trackingno=${trackingId}`;
+  if (name.includes('delhivery')) return `https://www.delhivery.com/track/package/${trackingId}`;
+  if (name.includes('bluedart')) return `https://www.bluedart.com/ubmenusearchshipment?trackingno=${trackingId}`;
+  if (name.includes('ekart') || name.includes('flipkart')) return `https://ekartlogistics.com/track/${trackingId}`;
+  if (name.includes('amazon')) return `https://track.amazon.in/tracking/${trackingId}`;
+  return `https://www.dtdc.in/tracking.asp?Trackingno=${trackingId}`; // default to DTDC
+}
+
+// ── Review Modal ───────────────────────────────────────────────────────────────
+function ReviewModal({ order, item, onClose, apiBase, token }: { order: Order; item: OrderItem; onClose: () => void; apiBase: string; token: string }) {
+  const [rating, setRating] = useState(5);
+  const [title, setTitle] = useState('');
+  const [body, setBody] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [done, setDone] = useState(false);
+  const [error, setError] = useState('');
+
+  async function submit() {
+    if (!body.trim()) { setError('Please write your review.'); return; }
+    setLoading(true); setError('');
+    try {
+      const res = await fetch(`${apiBase}/customer/reviews`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-customer-token': token },
+        body: JSON.stringify({ orderId: order.id, productId: String(item.productId), productName: item.name, rating, title: title.trim() || item.name, body: body.trim() }),
+      });
+      const d = await res.json();
+      if (d.success) setDone(true);
+      else setError(d.message || 'Failed to submit review.');
+    } catch { setError('Network error. Please try again.'); }
+    finally { setLoading(false); }
+  }
+
+  return (
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+      style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}
+      onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
+      <motion.div initial={{ y: 30, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 30, opacity: 0 }}
+        style={{ background: '#fff', borderRadius: 24, padding: 28, width: '100%', maxWidth: 440, maxHeight: '90vh', overflowY: 'auto' }}>
+        {done ? (
+          <div style={{ textAlign: 'center', padding: '20px 0' }}>
+            <CheckCircle2 size={48} color="#22c55e" style={{ margin: '0 auto 12px' }} />
+            <h3 style={{ fontSize: 18, fontWeight: 800 }}>Review Submitted! 🎉</h3>
+            <p style={{ fontSize: 13, color: '#8b6344', marginTop: 6 }}>Pending approval — it'll show up on the product page once approved.</p>
+            <button onClick={onClose} style={{ marginTop: 16, padding: '10px 24px', borderRadius: 12, border: 'none', background: PRIMARY, color: '#fff9f0', fontWeight: 700, cursor: 'pointer', fontFamily: 'Poppins,sans-serif' }}>Done</button>
+          </div>
+        ) : (
+          <>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+              <h3 style={{ fontSize: 17, fontWeight: 800, color: '#1a0f08' }}>Write a Review</h3>
+              <button onClick={onClose} style={{ background: 'rgba(0,0,0,0.06)', border: 'none', borderRadius: '50%', width: 32, height: 32, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><X size={15} /></button>
+            </div>
+            <div style={{ padding: '10px 14px', borderRadius: 12, background: `${PRIMARY}08`, border: `1px solid ${PRIMARY}20`, marginBottom: 16 }}>
+              <p style={{ fontSize: 13, fontWeight: 700, color: '#1a0f08' }}>🥒 {item.name}</p>
+              <p style={{ fontSize: 11, color: '#8b6344', marginTop: 2 }}>{item.size}</p>
+            </div>
+            <div style={{ marginBottom: 14 }}>
+              <label style={{ fontSize: 11, fontWeight: 700, color: '#8b6344', textTransform: 'uppercase', letterSpacing: '0.06em', display: 'block', marginBottom: 8 }}>Your Rating</label>
+              <StarRating value={rating} onChange={setRating} />
+            </div>
+            <div style={{ marginBottom: 12 }}>
+              <label style={{ fontSize: 11, fontWeight: 700, color: '#8b6344', textTransform: 'uppercase', letterSpacing: '0.06em', display: 'block', marginBottom: 6 }}>Review Title (optional)</label>
+              <input value={title} onChange={e => setTitle(e.target.value)} placeholder={`e.g. Amazing ${item.name}!`}
+                style={{ width: '100%', padding: '10px 12px', borderRadius: 10, border: '1.5px solid rgba(139,94,60,0.2)', fontFamily: 'Poppins,sans-serif', fontSize: 13, outline: 'none', boxSizing: 'border-box', color: '#1a0f08' }} />
+            </div>
+            <div style={{ marginBottom: error ? 8 : 14 }}>
+              <label style={{ fontSize: 11, fontWeight: 700, color: '#8b6344', textTransform: 'uppercase', letterSpacing: '0.06em', display: 'block', marginBottom: 6 }}>Your Review *</label>
+              <textarea value={body} onChange={e => setBody(e.target.value)} placeholder="Share your experience with this product…" rows={4}
+                style={{ width: '100%', padding: '10px 12px', borderRadius: 10, border: '1.5px solid rgba(139,94,60,0.2)', fontFamily: 'Poppins,sans-serif', fontSize: 13, resize: 'none', outline: 'none', boxSizing: 'border-box', color: '#1a0f08' }} />
+            </div>
+            {error && <p style={{ fontSize: 12, color: '#dc2626', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 4 }}><AlertCircle size={12} />{error}</p>}
+            <button onClick={submit} disabled={!body.trim() || loading}
+              style={{ width: '100%', padding: '12px', borderRadius: 12, border: 'none', background: !body.trim() ? 'rgba(181,58,46,0.3)' : PRIMARY, color: '#fff9f0', fontWeight: 700, fontSize: 14, cursor: !body.trim() || loading ? 'not-allowed' : 'pointer', fontFamily: 'Poppins,sans-serif' }}>
+              {loading ? 'Posting…' : 'Post Review'}
+            </button>
+          </>
+        )}
+      </motion.div>
+    </motion.div>
+  );
+}
+
+function IssueModal({ orderId, onClose, apiBase, token }: { orderId: string; onClose: () => void; apiBase: string; token: string }) {
+  const [type, setType] = useState('');
+  const [description, setDescription] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [done, setDone] = useState(false);
+  const ISSUE_TYPES = ['Damaged Product', 'Wrong Product', 'Missing Product', 'Late Delivery', 'Payment Issue', 'Other'];
+
+  async function submit() {
+    if (!type || !description.trim()) return;
+    setLoading(true);
+    try {
+      const res = await fetch(`${apiBase}/orders/${orderId}/issues`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json', 'x-customer-token': token },
+        body: JSON.stringify({ type, description }),
+      });
+      if ((await res.json()).success) setDone(true);
+    } catch { /* silent */ }
+    finally { setLoading(false); }
+  }
+
+  return (
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+      style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}
+      onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
+      <motion.div initial={{ y: 30, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 30, opacity: 0 }}
+        style={{ background: '#fff', borderRadius: 24, padding: 28, width: '100%', maxWidth: 440 }}>
+        {done ? (
+          <div style={{ textAlign: 'center', padding: '20px 0' }}>
+            <CheckCircle2 size={48} color="#22c55e" style={{ margin: '0 auto 12px' }} />
+            <h3 style={{ fontSize: 18, fontWeight: 800 }}>Issue Reported</h3>
+            <p style={{ fontSize: 13, color: '#8b6344', marginTop: 6 }}>Our team will look into it within 24 hours.</p>
+            <button onClick={onClose} style={{ marginTop: 16, padding: '10px 24px', borderRadius: 12, border: 'none', background: PRIMARY, color: '#fff9f0', fontWeight: 700, cursor: 'pointer', fontFamily: 'Poppins,sans-serif' }}>Done</button>
+          </div>
+        ) : (
+          <>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+              <h3 style={{ fontSize: 17, fontWeight: 800, color: '#1a0f08' }}>Raise Issue</h3>
+              <button onClick={onClose} style={{ background: 'rgba(0,0,0,0.06)', border: 'none', borderRadius: '50%', width: 32, height: 32, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><X size={15} /></button>
+            </div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 16 }}>
+              {ISSUE_TYPES.map(t => (
+                <button key={t} onClick={() => setType(t)}
+                  style={{ padding: '7px 12px', borderRadius: 20, border: `1.5px solid ${type === t ? PRIMARY : 'rgba(139,94,60,0.2)'}`, background: type === t ? `${PRIMARY}10` : 'transparent', color: type === t ? PRIMARY : '#8b6344', fontWeight: 700, fontSize: 12, cursor: 'pointer', fontFamily: 'Poppins,sans-serif', transition: 'all 0.15s' }}>
+                  {t}
+                </button>
+              ))}
+            </div>
+            <textarea value={description} onChange={e => setDescription(e.target.value)} placeholder="Describe your issue in detail…" rows={4}
+              style={{ width: '100%', padding: '12px 14px', borderRadius: 12, border: '1.5px solid rgba(139,94,60,0.2)', fontFamily: 'Poppins,sans-serif', fontSize: 13, resize: 'none', outline: 'none', boxSizing: 'border-box', color: '#1a0f08' }} />
+            <button onClick={submit} disabled={!type || !description.trim() || loading}
+              style={{ width: '100%', marginTop: 14, padding: '12px', borderRadius: 12, border: 'none', background: !type || !description.trim() ? 'rgba(181,58,46,0.3)' : PRIMARY, color: '#fff9f0', fontWeight: 700, fontSize: 14, cursor: !type || !description.trim() ? 'not-allowed' : 'pointer', fontFamily: 'Poppins,sans-serif' }}>
+              {loading ? 'Submitting…' : 'Submit Issue'}
+            </button>
+          </>
+        )}
+      </motion.div>
+    </motion.div>
+  );
+}
+
+export default function MyOrders() {
+  const { apiBase, token } = useCustomer();
+  const { toast } = useToast();
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [issueOrderId, setIssueOrderId] = useState<string | null>(null);
+  const [filter, setFilter] = useState('all');
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [newOrderIds, setNewOrderIds] = useState<Set<string>>(new Set());
+  const prevStatuses = useRef<Map<string, string>>(new Map());
+  const initialLoad = useRef(true);
+
+  const fetchOrders = useCallback(async () => {
+    if (!token) return;
+    try {
+      const res = await fetch(`${apiBase}/customer/orders`, {
+        headers: { 'x-customer-token': token },
+        cache: 'no-store',
+      });
+      if (!res.ok) return;
+      const d = await res.json();
+      if (!d.success) return;
+
+      const incoming: Order[] = d.orders;
+
+      if (!initialLoad.current) {
+        const changedOrders: string[] = [];
+        const freshIds = new Set<string>();
+
+        for (const order of incoming) {
+          const prev = prevStatuses.current.get(order.id);
+          if (prev === undefined) {
+            freshIds.add(order.id);
+          } else if (prev !== order.status) {
+            changedOrders.push(order.id);
+            const color = STATUS_COLORS[order.status] || '#8b6344';
+            const emoji = STATUS_EMOJI[order.status] ?? '📦';
+            toast({
+              title: `${emoji} Order Status Updated`,
+              description: `Order ${order.id} is now ${order.status.replace(/_/g, ' ')}.`,
+              duration: 7000,
+            });
+          }
+        }
+
+        if (freshIds.size > 0) {
+          setNewOrderIds(prev => {
+            const next = new Set(prev);
+            freshIds.forEach(id => next.add(id));
+            return next;
+          });
+          setTimeout(() => {
+            setNewOrderIds(new Set());
+          }, 4000);
+        }
+      } else {
+        initialLoad.current = false;
+      }
+
+      const newMap = new Map<string, string>();
+      for (const o of incoming) newMap.set(o.id, o.status);
+      prevStatuses.current = newMap;
+
+      setOrders(incoming);
+      setLastUpdated(new Date());
+    } catch {
+      /* silent on error */
+    } finally {
+      setLoading(false);
+    }
+  }, [token, apiBase, toast]);
+
+  useEffect(() => { fetchOrders(); }, [fetchOrders]);
+  usePolling(fetchOrders, 5000, !!token);
+
+  const filters = [
+    { key: 'all', label: 'All' },
+    { key: 'active', label: 'Active' },
+    { key: 'delivered', label: 'Delivered' },
+    { key: 'cancelled', label: 'Cancelled' },
+  ];
+
+  const filtered = orders.filter(o => {
+    if (filter === 'all') return true;
+    if (filter === 'active') return !['delivered', 'cancelled', 'returned', 'refunded'].includes(o.status);
+    if (filter === 'delivered') return o.status === 'delivered';
+    if (filter === 'cancelled') return ['cancelled', 'returned', 'refunded'].includes(o.status);
+    return true;
+  });
+
+  return (
+    <div style={{ maxWidth: 720, margin: '0 auto' }}>
+      {/* Filter bar + live indicator */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, flexWrap: 'wrap', gap: 10 }}>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          {filters.map(f => (
+            <button key={f.key} onClick={() => setFilter(f.key)}
+              style={{ padding: '8px 16px', borderRadius: 20, border: `1.5px solid ${filter === f.key ? PRIMARY : 'rgba(139,94,60,0.2)'}`, background: filter === f.key ? PRIMARY : '#fff', color: filter === f.key ? '#fff9f0' : '#8b6344', fontWeight: 700, fontSize: 13, cursor: 'pointer', fontFamily: 'Poppins,sans-serif', transition: 'all 0.15s' }}>
+              {f.label}
+            </button>
+          ))}
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          {lastUpdated && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#22c55e', display: 'inline-block', animation: 'livePulse 2s ease-in-out infinite' }} />
+              <span style={{ fontSize: 10, color: '#22c55e', fontWeight: 700 }}>LIVE</span>
+              <span style={{ fontSize: 10, color: '#c4a882' }}>
+                · {lastUpdated.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+              </span>
+            </div>
+          )}
+          <button onClick={fetchOrders} title="Refresh orders"
+            style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '7px 12px', borderRadius: 20, border: `1px solid ${PRIMARY}40`, background: 'transparent', color: PRIMARY, fontWeight: 700, fontSize: 12, cursor: 'pointer', fontFamily: 'Poppins,sans-serif' }}>
+            <RefreshCw size={12} /> Refresh
+          </button>
+        </div>
+      </div>
+
+      {loading ? (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          {[1, 2, 3].map(i => (
+            <div key={i} style={{ height: 100, borderRadius: 20, background: 'rgba(139,94,60,0.06)', animation: 'pulse 1.5s ease-in-out infinite' }} />
+          ))}
+        </div>
+      ) : filtered.length === 0 ? (
+        <div style={{ textAlign: 'center', padding: '60px 20px' }}>
+          <div style={{ fontSize: 48, marginBottom: 12 }}>📦</div>
+          <h3 style={{ fontSize: 18, fontWeight: 800, marginBottom: 6 }}>No orders found</h3>
+          <p style={{ fontSize: 13, color: '#8b6344' }}>
+            {filter === 'all' ? "You haven't placed any orders yet." : `No ${filter} orders.`}
+          </p>
+        </div>
+      ) : (
+        <motion.div layout style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <AnimatePresence>
+            {filtered.map(order => (
+              <OrderCard key={order.id} order={order} onRaiseIssue={id => setIssueOrderId(id)} isNew={newOrderIds.has(order.id)} />
+            ))}
+          </AnimatePresence>
+        </motion.div>
+      )}
+
+      <AnimatePresence>
+        {issueOrderId && token && (
+          <IssueModal orderId={issueOrderId} onClose={() => setIssueOrderId(null)} apiBase={apiBase} token={token} />
+        )}
+      </AnimatePresence>
+
+      <style>{`
+        @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
+        @keyframes livePulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.6;transform:scale(1.4)} }
+      `}</style>
+    </div>
+  );
+}

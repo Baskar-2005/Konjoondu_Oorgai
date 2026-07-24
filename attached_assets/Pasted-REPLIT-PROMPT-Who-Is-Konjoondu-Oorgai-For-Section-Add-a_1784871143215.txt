@@ -1,0 +1,243 @@
+REPLIT PROMPT — "Who Is Konjoondu Oorgai For?" Section
+
+Add a brand new premium section immediately below the Hero section.
+
+Do NOT modify any other sections.
+
+The section should blend perfectly with the existing luxury premium dark theme of the website.
+
+Section Title
+
+Yaarukkaga Konjoondu Oorgai?
+
+Subtitle
+
+"Busy life... aana homemade taste miss aaga koodadhu."
+
+Center aligned with premium typography.
+
+Layout
+
+Create a responsive Bento Grid layout.
+
+Desktop:
+
+4 cards in first row
+4 cards in second row
+
+Tablet:
+
+2 columns
+
+Mobile:
+
+Single column
+
+Cards should have equal height.
+
+Card Design
+
+Premium glassmorphism cards.
+
+Background:
+rgba(255,255,255,0.05)
+
+Blur:
+backdrop-filter: blur(18px)
+
+Border:
+1px solid rgba(255,180,60,.15)
+
+Border Radius:
+24px
+
+Hover Animation:
+
+Lift upward
+Scale 1.03
+Soft golden glow
+Smooth transition
+Floating shadow
+
+Animation:
+Cards should fade up one by one while scrolling.
+
+Card Content
+🎓 College Students
+
+Hostel saapadu bore adikutha?
+
+Just hot rice + Konjoondu Oorgai.
+
+2 mins-la semma meal ready 😋
+
+💼 Office Workers
+
+Office mudichitu vandha apram samaikka mood illa?
+
+Oru bottle open pannunga.
+
+Saapadu instant level-up. 🔥
+
+👩‍💻 Busy Professionals
+
+Meeting mela meeting... cooking-ku time eh illa?
+
+Rice irundha pothum.
+
+Konjoondu Oorgai irundha complete meal ❤️
+
+🏠 Bachelors & PG Stay
+
+Veetu saapadu miss panreengala?
+
+Open.
+
+Mix.
+
+Saapdu.
+
+Amma veetu taste feel pannunga.
+
+✈️ Travelers
+
+Trip ponaalum homemade taste venuma?
+
+Carry pannunga.
+
+Enga venumnaalum enjoy pannunga.
+
+👨‍👩‍👧 Family Lunch
+
+Sunday lunch-ku side dish yosikireengala?
+
+Konjoondu Oorgai irundha...
+
+Ellarum innum konjam rice podunga nu ketpaanga 😍
+
+🍱 Lunch Box
+
+Daily same lunch ah?
+
+One spoon Konjoondu Oorgai.
+
+Whole lunch taste change 🔥
+
+❤️ Amma Taste Lovers
+
+Amma kai pakkuvam miss panreengala?
+
+Every bottle-la irukku
+
+Homemade Love ❤️
+
+Traditional Recipe 🏡
+
+Authentic South Indian Taste.
+
+Icons
+
+Use premium icons matching each card.
+
+College → Graduation Cap
+
+Office → Briefcase
+
+Professional → Laptop
+
+Bachelor → Home
+
+Travel → Airplane
+
+Family → Users
+
+Lunch → Lunchbox
+
+Amma → Heart
+
+Icons should have a warm golden/orange gradient.
+
+Background
+
+Keep the existing premium dark luxury theme.
+
+Add subtle:
+
+Floating spice particles
+Curry leaves
+Pepper
+Smoke
+Soft golden glow
+Very low opacity
+
+No distracting background.
+
+Bottom Highlight Card
+
+Below the grid create one premium full-width glass card.
+
+Large Heading:
+
+🍚 Rice irukka?
+
+Konjoondu Oorgai irukka?
+
+Text
+
+Appo saapadu ready!
+
+No Cooking.
+
+No Waiting.
+
+Just Open.
+
+Mix.
+
+Enjoy 😋
+
+CTA
+
+Below that create a centered premium CTA.
+
+Heading:
+
+Taste That Knocks You Out.
+
+Button:
+
+Explore Our Pickles
+
+Use the same button style already used in the Hero section.
+
+Animations
+
+Use Framer Motion.
+
+Fade Up
+Scale
+Stagger animation
+Hover glow
+Soft floating effect
+Smooth scroll reveal
+Color Palette
+
+Do NOT introduce new colors.
+
+Reuse existing website colors:
+
+Gold
+Warm Orange
+Dark Brown
+Black
+White
+
+Maintain perfect visual consistency with the rest of the website.
+
+Important
+Do NOT modify the Hero section.
+Do NOT modify Navbar.
+Do NOT change typography.
+Do NOT change existing spacing system.
+Make this section feel like it was designed together with the rest of the website.
+The final result should look like a premium Apple-style luxury food brand website with excellent responsiveness, smooth animations, and clean modern UI.

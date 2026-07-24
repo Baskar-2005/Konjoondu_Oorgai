@@ -1,0 +1,9 @@
+User-agent: *
+Allow: /
+
+# Block private pages from indexing
+Disallow: /admin
+Disallow: /station
+Disallow: /account
+
+Sitemap: https://konjoondu-oorkai.netlify.app/sitemap.xml

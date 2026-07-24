@@ -1,0 +1,14 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "bnOgc4Cl-iucZrHoBMVA3"
+uri = "file://Konjoondu_Oorgai_Pricing_Proposal.txt"
+type = "text"
+title = "Konjoondu Oorgai — Pricing Proposal"
+
+[[outputs]]
+id = "hqyMrunDeZ7-HPgDIaGxG"
+uri = "file://artifacts/konjoondu-oorgai/src/assets/hero-bg-new.jpg"
+type = "image"
+title = "New Hero Background"

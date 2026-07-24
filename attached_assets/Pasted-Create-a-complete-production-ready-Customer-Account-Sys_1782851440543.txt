@@ -1,0 +1,548 @@
+Create a complete production-ready Customer Account System for Kasthuribai Ready Mades.
+
+IMPORTANT
+
+Do NOT create a basic login page.
+
+I want a premium customer experience similar to Amazon, Myntra, AJIO and Apple Store.
+
+The entire flow should feel modern, premium, smooth and elegant.
+
+If you have better UX ideas than my requirements, implement them.
+
+=========================================================
+AUTHENTICATION
+=========================================================
+
+Create a beautiful authentication system.
+
+Login using
+
+• Phone Number
+• Password
+
+Also support
+
+Forgot Password
+
+OTP Verification
+
+Remember Me
+
+Secure Session
+
+After successful login, if this is the customer's first login,
+
+automatically open a beautiful modal asking
+
+• Full Name
+• Email
+• Phone Number
+• Date of Birth (Optional)
+• Gender (Optional)
+
+Then ask the customer to save an address.
+
+=========================================================
+ADDRESS MANAGEMENT
+=========================================================
+
+Customers should be able to
+
+Add Address
+
+Edit Address
+
+Delete Address
+
+Mark Default Address
+
+Home
+
+Work
+
+Other
+
+Allow unlimited addresses.
+
+Example
+
+Home
+
+Office
+
+Parents House
+
+Friend Address
+
+Apartment
+
+Hostel
+
+At Checkout
+
+Automatically load the default address.
+
+Customer should simply choose another saved address without entering details again.
+
+Also allow
+
+Add New Address
+
+directly from Checkout.
+
+=========================================================
+CUSTOMER DASHBOARD
+=========================================================
+
+Create a beautiful dashboard.
+
+Show
+
+Welcome Card
+
+Profile Completion
+
+Reward Points (Future Ready)
+
+Wishlist Count
+
+Total Orders
+
+Pending Orders
+
+Delivered Orders
+
+Returns
+
+Saved Addresses
+
+Coupons
+
+Quick Actions
+
+Recent Orders
+
+Recommended Products
+
+=========================================================
+PROFILE
+=========================================================
+
+Customer should edit
+
+Name
+
+Phone
+
+Email
+
+Password
+
+Profile Picture
+
+Date of Birth
+
+Gender
+
+Communication Preferences
+
+=========================================================
+MY ORDERS
+=========================================================
+
+This page should be much better than the existing version.
+
+Every order should expand beautifully.
+
+Inside every order include
+
+Product Images
+
+Product Details
+
+Quantity
+
+Size
+
+Color
+
+Price Breakdown
+
+GST
+
+Discount
+
+Shipping Charges
+
+Coupon Used
+
+Order Date
+
+Invoice
+
+Shipping Address
+
+Estimated Delivery
+
+Payment Method
+
+Tracking Number
+
+Courier Partner
+
+Expected Delivery
+
+Order Notes
+
+=========================================================
+LIVE ORDER TRACKING
+=========================================================
+
+Create a beautiful animated shipment tracking timeline.
+
+NOT a static timeline.
+
+Make it feel alive.
+
+Example stages
+
+Order Placed
+
+Payment Confirmed
+
+Preparing Order
+
+Quality Check
+
+Packed
+
+Ready for Dispatch
+
+Picked Up
+
+Shipped
+
+In Transit
+
+Reached Local Hub
+
+Out For Delivery
+
+Delivered
+
+Every stage should animate beautifully.
+
+Examples
+
+Moving truck
+
+Animated package
+
+Progress line animation
+
+Pulse effects
+
+Location updates
+
+Estimated delivery countdown
+
+Current status indicator
+
+The customer should immediately understand where the parcel is.
+
+=========================================================
+ORDER ACTIONS
+=========================================================
+
+Every order should support
+
+Download Invoice
+
+Download Shipping Label
+
+Track Shipment
+
+Cancel Order
+
+Return Product
+
+Request Refund
+
+Exchange Request
+
+Raise Issue
+
+Contact Support
+
+Chat Support (Future Ready)
+
+Buy Again
+
+Repeat Entire Order
+
+Share Order
+
+Gift Again
+
+=========================================================
+RETURN & REFUND
+=========================================================
+
+Beautiful wizard.
+
+Reason
+
+Upload Images
+
+Comments
+
+Pickup Address
+
+Refund Method
+
+Track Return
+
+Track Refund
+
+Refund Timeline
+
+=========================================================
+RAISE ISSUE
+=========================================================
+
+Customer can report
+
+Damaged Product
+
+Wrong Product
+
+Missing Product
+
+Late Delivery
+
+Payment Issue
+
+Other
+
+Allow
+
+Text
+
+Images
+
+Video (Future Ready)
+
+Every submitted issue should automatically appear inside the Admin Dashboard.
+
+Admin should receive a notification immediately.
+
+=========================================================
+PRODUCT REVIEWS
+=========================================================
+
+Only customers who purchased the product can review it.
+
+Allow
+
+5-Star Rating
+
+Title
+
+Detailed Review
+
+Upload Images
+
+Upload Videos (Future Ready)
+
+Like Helpful
+
+Edit Review
+
+Delete Review
+
+Verified Purchase Badge
+
+Once submitted,
+
+the review should automatically appear inside
+
+Admin Dashboard
+
+→ Reviews
+
+with notification.
+
+Admin can
+
+Approve
+
+Reject
+
+Reply
+
+Hide
+
+=========================================================
+NOTIFICATIONS
+=========================================================
+
+Customer notification center
+
+Order Updates
+
+Shipping Updates
+
+Refund Updates
+
+Return Updates
+
+Coupon Notifications
+
+Offers
+
+Review Replies
+
+Issue Updates
+
+=========================================================
+WISHLIST
+=========================================================
+
+Save Products
+
+Move To Cart
+
+Remove
+
+Share Wishlist
+
+=========================================================
+CHECKOUT EXPERIENCE
+=========================================================
+
+Automatically fill
+
+Customer Name
+
+Phone
+
+Default Address
+
+Email
+
+Saved Address
+
+Customer should not re-enter information every time.
+
+=========================================================
+LOYALTY
+=========================================================
+
+Future Ready
+
+Reward Points
+
+Membership
+
+VIP Customer
+
+Coupons
+
+Birthday Offers
+
+=========================================================
+SETTINGS
+=========================================================
+
+Language
+
+Notifications
+
+Privacy
+
+Password
+
+Delete Account
+
+Logout
+
+=========================================================
+ADMIN INTEGRATION
+=========================================================
+
+Whenever customer
+
+places order
+
+writes review
+
+raises issue
+
+requests refund
+
+requests return
+
+changes address
+
+changes profile
+
+everything should immediately reflect inside the Admin Dashboard.
+
+Create notification badges.
+
+=========================================================
+DESIGN
+=========================================================
+
+Follow the same premium design language used throughout Kasthuribai.
+
+Luxury
+
+Minimal
+
+Elegant
+
+Smooth
+
+Responsive
+
+Beautiful Cards
+
+Soft Shadows
+
+Rounded UI
+
+Premium Typography
+
+Glass Effects where appropriate
+
+Framer Motion Animations
+
+Skeleton Loading
+
+Micro Interactions
+
+Sticky Headers
+
+Sticky Action Buttons
+
+Premium Empty States
+
+=========================================================
+IMPORTANT
+=========================================================
+
+Do NOT create demo pages.
+
+Create reusable components.
+
+Create scalable architecture.
+
+Think like a senior product designer.
+
+If you have better UX ideas than this prompt,
+
+implement them automatically.
+
+The final customer portal should feel comparable to Amazon, Myntra or Apple Store in terms of user experience while matching the premium branding of Kasthuribai Ready Mades.

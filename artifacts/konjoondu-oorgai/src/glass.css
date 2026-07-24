@@ -1,0 +1,12 @@
+@layer utilities {
+  .glass {
+    background: rgba(255, 255, 255, 0.75);
+    backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    box-shadow: 0 8px 32px rgba(139, 94, 60, 0.15);
+  }
+  .dark .glass {
+    background: rgba(45, 36, 31, 0.85);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+  }
+}

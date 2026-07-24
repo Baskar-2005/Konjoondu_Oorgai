@@ -1,0 +1,204 @@
+import { Router, type IRouter, type Request, type Response } from "express";
+import { customersCol, ordersCol, reviewsCol, inventoryCol } from "../lib/firestoreDb";
+
+const router: IRouter = Router();
+
+function requireAdmin(req: Request, res: Response): boolean {
+  const token = req.headers["x-admin-token"];
+  if (!token || token !== process.env.ADMIN_SECRET) {
+    res.status(403).json({ success: false, message: "Forbidden." });
+    return false;
+  }
+  return true;
+}
+
+// GET /api/admin/customers — all registered customers with order stats
+router.get("/admin/customers", async (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  try {
+    const [customers, orders] = await Promise.all([
+      customersCol.findAll(),
+      ordersCol.findAll(),
+    ]);
+
+    // Build per-phone order stats from orders
+    const statsMap = new Map<string, { orders: number; lifetime: number; lastOrder: Date | null }>();
+    for (const o of orders) {
+      const phone = o.customerPhone;
+      const existing = statsMap.get(phone) ?? { orders: 0, lifetime: 0, lastOrder: null };
+      existing.orders += 1;
+      existing.lifetime += o.totalAmount;
+      const oDate = new Date(o.createdAt);
+      if (!existing.lastOrder || oDate > existing.lastOrder) existing.lastOrder = oDate;
+      statsMap.set(phone, existing);
+    }
+
+    const result = customers.map((c) => {
+      const stats = statsMap.get(c.phone) ?? { orders: 0, lifetime: 0, lastOrder: null };
+      return {
+        id: c.id,
+        name: c.name,
+        phone: c.phone,
+        email: c.email,
+        isVerified: c.isVerified,
+        rewardPoints: c.rewardPoints,
+        createdAt: c.createdAt,
+        orderCount: stats.orders,
+        lifetimeValue: stats.lifetime,
+        lastOrderAt: stats.lastOrder,
+      };
+    });
+
+    res.json({ success: true, customers: result, total: result.length });
+  } catch (err) {
+    res.status(500).json({ success: false, message: String(err) });
+  }
+});
+
+// GET /api/admin/reviews — all reviews across all customers
+router.get("/admin/reviews", async (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  try {
+    const reviews = await reviewsCol.findAllAdmin();
+
+    // Collect unique customerIds and fetch names in one batch
+    const customerIds = [...new Set(reviews.map((r) => r.customerId).filter(Boolean))];
+    const customerDocs = await Promise.all(customerIds.map((id) => customersCol.findById(id)));
+    const nameMap = new Map<string, string>();
+    for (let i = 0; i < customerIds.length; i++) {
+      const doc = customerDocs[i];
+      if (doc) nameMap.set(customerIds[i], doc.name);
+    }
+
+    const result = reviews.map((r) => ({
+      ...r,
+      customerName: nameMap.get(r.customerId) ?? "Unknown",
+    }));
+
+    res.json({ success: true, reviews: result, total: result.length });
+  } catch (err) {
+    res.status(500).json({ success: false, message: String(err) });
+  }
+});
+
+// PATCH /api/admin/reviews/:customerId/:reviewId — approve/reject/reply
+router.patch("/admin/reviews/:customerId/:reviewId", async (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  const { customerId, reviewId } = req.params;
+  const { status, adminReply } = req.body as { status?: string; adminReply?: string };
+  const updates: { status?: string; adminReply?: string } = {};
+  if (status) updates.status = status;
+  if (adminReply !== undefined) updates.adminReply = adminReply;
+  if (!Object.keys(updates).length) {
+    res.status(400).json({ success: false, message: "Nothing to update." });
+    return;
+  }
+  try {
+    await reviewsCol.adminUpdate(customerId, reviewId, updates);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ success: false, message: String(err) });
+  }
+});
+
+// GET /api/admin/inventory — all inventory items (auto-seeds if empty)
+router.get("/admin/inventory", async (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  try {
+    const inventory = await inventoryCol.findAll();
+    res.json({ success: true, inventory });
+  } catch (err) {
+    res.status(500).json({ success: false, message: String(err) });
+  }
+});
+
+// POST /api/admin/inventory — add a new inventory item
+router.post("/admin/inventory", async (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  try {
+    const body = req.body as Record<string, unknown>;
+    const item = {
+      productName: String(body.productName ?? ""),
+      sku: String(body.sku ?? ""),
+      size: String(body.size ?? ""),
+      batch: String(body.batch ?? ""),
+      stock: Number(body.stock ?? 0),
+      threshold: Number(body.threshold ?? 10),
+      incoming: Number(body.incoming ?? 0),
+      expiry: String(body.expiry ?? ""),
+      supplier: String(body.supplier ?? ""),
+      cost: Number(body.cost ?? 0),
+    };
+    if (!item.productName) {
+      res.status(400).json({ success: false, message: "productName is required." });
+      return;
+    }
+    const id = await inventoryCol.create(item);
+    res.json({ success: true, id });
+  } catch (err) {
+    res.status(500).json({ success: false, message: String(err) });
+  }
+});
+
+// PATCH /api/admin/inventory/:id — update any inventory fields
+router.patch("/admin/inventory/:id", async (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  const { id } = req.params;
+  try {
+    const body = req.body as Record<string, unknown>;
+    const updates: Record<string, unknown> = {};
+    const numFields = ["stock", "threshold", "incoming", "cost"];
+    const strFields = ["productName", "sku", "size", "batch", "expiry", "supplier"];
+    for (const f of numFields) if (f in body) updates[f] = Number(body[f]);
+    for (const f of strFields) if (f in body) updates[f] = String(body[f]);
+    if (!Object.keys(updates).length) {
+      res.status(400).json({ success: false, message: "Nothing to update." });
+      return;
+    }
+    await inventoryCol.update(id, updates as Parameters<typeof inventoryCol.update>[1]);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ success: false, message: String(err) });
+  }
+});
+
+// POST /api/admin/inventory/sync — upsert all canonical SKUs (adds missing, keeps existing stock)
+router.post("/admin/inventory/sync", async (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  try {
+    const result = await inventoryCol.syncAll();
+    res.json({ success: true, ...result });
+  } catch (err) {
+    res.status(500).json({ success: false, message: String(err) });
+  }
+});
+
+// DELETE /api/admin/inventory/:id — remove an inventory item
+router.delete("/admin/inventory/:id", async (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  const { id } = req.params;
+  try {
+    await inventoryCol.delete(id);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ success: false, message: String(err) });
+  }
+});
+
+// GET /products/stock — public endpoint: returns stock levels per product/size (no auth)
+router.get("/products/stock", async (req, res) => {
+  try {
+    const inventory = await inventoryCol.findAll();
+    const stock = inventory.map((i) => ({
+      productName: i.productName,
+      // size field is often empty; fall back to extracting it from the SKU (e.g. "P4-250g" → "250g")
+      size: i.size || i.sku.replace(/^P\d+-/, ""),
+      stock: i.stock,
+    }));
+    res.json({ success: true, stock });
+  } catch (err) {
+    res.status(500).json({ success: false, message: String(err) });
+  }
+});
+
+export default router;

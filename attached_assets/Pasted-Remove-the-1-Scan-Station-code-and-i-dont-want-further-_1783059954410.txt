@@ -1,0 +1,28 @@
+Remove the 1.Scan Station code and i dont want further 2.Manager page 3.Delivery section in the admin Dashboard
+
+Modify the
+
+a )order section of the admin dashboard in that Order time line have only Pending,Confirmed,Packed,Shipped,Deliveried in that Pending - based on the payment Confirmed - based on the payemnt Packed and Shipped done on same time when we will get the tracking number and update the shipping details means passed through packed and shipped and have a button in that Every order Track Order ,after 2 ,3 days you can manually check the staus through the tracking link if the deliveried to the customer means manually updaate to deliveried 1.b) Shipment Management section to have a edit option and delete option if they edit it means in the customer my order page it should reflect
+1.c) In the Update status section have only Packed,Shipped,Deliveried because if we get the confrimed status after successful payment there is no need and not possible to said to pending so remove it in update status section
+
+1.d) In show Qr Button when we click Show the QR and some details of the orders only and remove the https://44d55a6e-dfce-4457-8644-f94adf411293-00-1uy707f5r3xi6.pike.replit.dev/track/KO-2F16C1BF
+
+Open tracking page 📍 Station Workflow
+
+Packing station scan → Packed Shipping station scan → Shipped Delivery partner scan → In Transit → Out for Delivery → Delivered
+
+in that pop up show of show QR button
+
+2.a) In product page we have a edit option for every product in that form remove the edit option to edit the stock and spice level editing changes is not saved in db
+
+2.b) in the Products section have a Button Called add product and have a Pop up form and ask the admin the enter the details for the product and image (store the image in our project folder) how other imagaes stored like that
+
+2.C) In the products section have a Refresh button
+
+3.a ) In the inventoty Page Have the UI like a Table format and in that show Only -Image , Size , Stocks,Alert,Status(like Ok,Out of stock,alert), Editing option and delete button If delete button clicked means ask a pop up button are you sure to delete this Beef Pickle like that(In the Inventory page we can only edit the stocks and alert at value)
+
+4.a) In the notification section If any new orders we get ,Low stock alert,Package delivered , New Review like that real updates should immediately should display in the section 4.b) have a Refresh button in this page and Top right Bell icon also should work to be functionaly
+
+5.a) In create order page Have a check box that (Order from Whatsapp, ) like that after that the form change like
+
+if order from whatspp means have (Name,Phone,Email, Shipping address)*must and Payment Done Through which UPI,Netbanking,Gpay,Phonepe,Payment Id and then select order items and create order and if the payment was done means have the status as confirmed as same process normal order process
