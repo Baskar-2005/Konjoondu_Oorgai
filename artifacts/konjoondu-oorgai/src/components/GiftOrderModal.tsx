@@ -508,7 +508,7 @@ function GiftModalContent({ onClose }: { onClose: () => void }) {
   // ── Main layout ──────────────────────────────────────────────────────────────
   return (
     <div
-      className="fixed inset-0 z-[1000] flex overflow-hidden"
+      className="fixed inset-0 z-[1000] flex flex-col justify-end md:justify-center md:items-center overflow-hidden"
       style={{ background: 'rgba(26,8,0,0.88)', backdropFilter: 'blur(12px)' }}
       onClick={e => { if (e.target === e.currentTarget) onClose(); }}
     >
@@ -518,23 +518,21 @@ function GiftModalContent({ onClose }: { onClose: () => void }) {
       `}</style>
 
       <motion.div
-        initial={{ opacity: 0, scale: 0.97, y: 20 }}
-        animate={{ opacity: 1, scale: 1, y: 0 }}
-        exit={{ opacity: 0, scale: 0.97, y: 20 }}
-        transition={{ duration: 0.38, ease: [0.22, 1, 0.36, 1] }}
-        className="relative flex flex-col md:flex-row w-full h-full md:h-[95vh] md:m-auto md:rounded-3xl overflow-hidden"
-        style={{ maxWidth: 960, boxShadow: '0 40px 120px rgba(0,0,0,0.7)' }}
+        initial={{ opacity: 0, y: 60 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: 60 }}
+        transition={{ duration: 0.42, ease: [0.22, 1, 0.36, 1] }}
+        className="relative flex flex-col md:flex-row w-full md:h-[95vh] md:rounded-3xl rounded-t-3xl overflow-hidden"
+        style={{ maxWidth: 960, height: '92dvh', boxShadow: '0 -12px 60px rgba(0,0,0,0.45), 0 40px 120px rgba(0,0,0,0.7)' }}
         onClick={e => e.stopPropagation()}
       >
-        {/* ── LEFT: Visualizer ────────────────────────────────────────────────── */}
+        {/* ── DESKTOP LEFT: Visualizer ────────────────────────────────────────── */}
         <div className="relative hidden md:flex flex-1 items-center justify-center overflow-hidden shrink-0"
           style={{ background: 'linear-gradient(160deg, #1a0800 0%, #2d1008 100%)' }}>
 
-          {/* Ambient glow */}
           <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] pointer-events-none rounded-full"
             style={{ background: 'radial-gradient(circle, rgba(181,58,46,0.18) 0%, transparent 65%)', filter: 'blur(20px)' }} />
 
-          {/* Close button (desktop) */}
           <button
             onClick={onClose}
             className="absolute top-5 left-5 z-50 w-9 h-9 rounded-full flex items-center justify-center transition-all hover:opacity-80"
@@ -543,7 +541,6 @@ function GiftModalContent({ onClose }: { onClose: () => void }) {
             <X size={15} />
           </button>
 
-          {/* Draft restored badge */}
           <AnimatePresence>
             {draftRestored && (
               <motion.div
@@ -559,18 +556,9 @@ function GiftModalContent({ onClose }: { onClose: () => void }) {
             )}
           </AnimatePresence>
 
-          {/* 3D Box + Letter */}
           <div className="relative z-10 flex flex-col items-center">
-            <GiftBox3D
-              jars={jarsInBox}
-              totalJars={totalJars}
-              tab={tab}
-              senderName={sender.name}
-              recipientName={recipient.name}
-              message={message}
-            />
-
-            {/* Status pill */}
+            <GiftBox3D jars={jarsInBox} totalJars={totalJars} tab={tab}
+              senderName={sender.name} recipientName={recipient.name} message={message} />
             <motion.div
               animate={{ scale: totalJars > 0 ? [1, 1.1, 1] : 1 }}
               transition={{ duration: 0.3 }}
@@ -588,34 +576,102 @@ function GiftModalContent({ onClose }: { onClose: () => void }) {
           </div>
         </div>
 
-        {/* ── RIGHT: Controls ──────────────────────────────────────────────────── */}
+        {/* ── MOBILE TOP: 3D Gift Box Stage ───────────────────────────────────── */}
+        <div
+          className="md:hidden relative shrink-0 overflow-hidden"
+          style={{ height: 232, background: 'linear-gradient(180deg, #130500 0%, #2a0e04 60%, #1a0800 100%)' }}
+        >
+          {/* Drag handle */}
+          <div className="absolute top-2.5 left-1/2 -translate-x-1/2 z-50 w-10 h-1 rounded-full"
+            style={{ background: 'rgba(255,255,255,0.22)' }} />
+
+          {/* Ambient glows */}
+          <div className="absolute pointer-events-none rounded-full"
+            style={{ top: '50%', left: '50%', transform: 'translate(-50%,-50%)', width: 320, height: 320,
+              background: 'radial-gradient(circle, rgba(181,58,46,0.22) 0%, transparent 65%)', filter: 'blur(16px)' }} />
+          <div className="absolute pointer-events-none rounded-full"
+            style={{ bottom: -40, right: '10%', width: 200, height: 200,
+              background: 'radial-gradient(circle, rgba(232,182,74,0.10) 0%, transparent 70%)', filter: 'blur(12px)' }} />
+
+          {/* Close button */}
+          <button onClick={onClose}
+            className="absolute top-5 right-4 z-50 w-9 h-9 rounded-full flex items-center justify-center"
+            style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.14)', color: '#fdf8f3' }}
+          >
+            <X size={15} />
+          </button>
+
+          {/* Draft restored (mobile) */}
+          <AnimatePresence>
+            {draftRestored && (
+              <motion.div
+                initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}
+                className="absolute top-5 left-4 z-40 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-semibold"
+                style={{ background: 'rgba(232,182,74,0.15)', border: '1px solid rgba(232,182,74,0.25)', color: '#e8b64a' }}
+              >
+                <span>💾 Draft</span>
+                <button onClick={resetForm} className="underline opacity-80" style={{ fontFamily: 'inherit' }}>reset</button>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* 3D box — centered & properly scaled */}
+          <div style={{
+            position: 'absolute',
+            top: '54%', left: '50%',
+            transform: 'translate(-50%, -50%) scale(0.56)',
+            transformOrigin: 'center center',
+          }}>
+            <GiftBox3D jars={jarsInBox} totalJars={totalJars} tab={tab}
+              senderName={sender.name} recipientName={recipient.name} message={message} />
+          </div>
+
+          {/* Status pill — bottom of stage */}
+          <motion.div
+            animate={{ scale: totalJars > 0 ? [1, 1.08, 1] : 1 }}
+            transition={{ duration: 0.3 }}
+            className="absolute bottom-3 left-1/2 -translate-x-1/2 px-4 py-1.5 rounded-full text-xs font-bold whitespace-nowrap"
+            style={{
+              background: totalJars > 0 ? 'rgba(232,182,74,0.18)' : 'rgba(255,255,255,0.07)',
+              color: totalJars > 0 ? '#e8b64a' : 'rgba(255,255,255,0.32)',
+              border: `1px solid ${totalJars > 0 ? 'rgba(232,182,74,0.3)' : 'rgba(255,255,255,0.10)'}`,
+              backdropFilter: 'blur(8px)',
+            }}
+          >
+            {tab === 'jars'
+              ? (totalJars > 0 ? `${totalJars} jar${totalJars !== 1 ? 's' : ''} in the box · ₹${totalAmount.toLocaleString('en-IN')}` : 'Box is open — add jars below')
+              : (totalJars > 0 ? `${totalJars} jar${totalJars !== 1 ? 's' : ''} sealed · ₹${totalAmount.toLocaleString('en-IN')}` : 'Empty box')}
+          </motion.div>
+        </div>
+
+        {/* ── RIGHT / BOTTOM: Controls ─────────────────────────────────────────── */}
         <div className="w-full md:w-[430px] flex-1 md:flex-none flex flex-col bg-[#fdf8f3] text-[#1a0800] relative z-20 min-h-0 overflow-hidden"
           style={{ boxShadow: '-20px 0 60px rgba(0,0,0,0.4)' }}>
 
           {/* Header */}
           <div className="px-5 md:px-7 pt-4 md:pt-6 pb-3 md:pb-4 border-b border-[#e2d5c5] shrink-0 flex items-center justify-between gap-3">
             <div className="min-w-0">
-              <h1 style={{ fontFamily: 'Georgia, serif', fontSize: 20, fontWeight: 700, color: '#1a0800', marginBottom: 1, lineHeight: 1.2 }}>
+              <h1 style={{ fontFamily: 'Georgia, serif', fontSize: 20, fontWeight: 700, color: '#1a0800', lineHeight: 1.2 }}>
                 Curate Your Gift 🎁
               </h1>
-              <p className="hidden md:block" style={{ fontSize: 12, color: '#8b5e3c' }}>Handcrafted coastal flavors, packed with love.</p>
+              <p className="hidden md:block" style={{ fontSize: 12, color: '#8b5e3c', marginTop: 2 }}>Handcrafted coastal flavors, packed with love.</p>
             </div>
-            {/* Mobile close */}
-            <button onClick={onClose} className="md:hidden shrink-0 w-9 h-9 rounded-full flex items-center justify-center"
+            {/* Desktop close (mobile close is on the box stage above) */}
+            <button onClick={onClose} className="hidden md:flex w-9 h-9 rounded-full items-center justify-center"
               style={{ background: 'rgba(181,58,46,0.08)', color: '#b53a2e' }}>
-              <X size={16} />
+              <X size={15} />
             </button>
           </div>
 
-          {/* Tabs — stepper style on mobile, text tabs on desktop */}
+          {/* Tabs — stepper on mobile, text tabs on desktop */}
           <div className="shrink-0 border-b border-[#e2d5c5]">
             {/* Mobile stepper */}
-            <div className="flex md:hidden items-center px-4 py-3 gap-0">
+            <div className="flex md:hidden items-center px-5 py-3 gap-0">
               {([
-                { id: 'jars',     label: 'Jars',     step: 1 },
-                { id: 'letter',   label: 'Letter',   step: 2 },
-                { id: 'delivery', label: 'Delivery', step: 3 },
-                { id: 'review',   label: 'Review',   step: 4 },
+                { id: 'jars', label: 'Jars', step: 1 },
+                { id: 'letter', label: 'Letter', step: 2 },
+                { id: 'delivery', label: 'Ship', step: 3 },
+                { id: 'review', label: 'Review', step: 4 },
               ] as { id: Tab; label: string; step: number }[]).map((t, i) => {
                 const tabIdx = TAB_ORDER.indexOf(t.id);
                 const curIdx = TAB_ORDER.indexOf(tab);
@@ -629,27 +685,27 @@ function GiftModalContent({ onClose }: { onClose: () => void }) {
                       style={{ cursor: tabIdx <= curIdx ? 'pointer' : 'default' }}
                     >
                       <div
-                        className="w-7 h-7 rounded-full flex items-center justify-center transition-all"
+                        className="w-8 h-8 rounded-full flex items-center justify-center transition-all"
                         style={{
-                          background: isDone ? '#c9922e' : isActive ? '#b53a2e' : '#e2d5c5',
-                          boxShadow: isActive ? '0 0 0 3px rgba(181,58,46,0.15)' : 'none',
+                          background: isDone ? 'linear-gradient(135deg,#c9922e,#a87420)' : isActive ? 'linear-gradient(135deg,#b53a2e,#8b2a20)' : '#e2d5c5',
+                          boxShadow: isActive ? '0 0 0 3px rgba(181,58,46,0.18), 0 4px 12px rgba(181,58,46,0.3)' : 'none',
                         }}
                       >
                         {isDone
-                          ? <Check size={12} color="#fff" strokeWidth={3} />
-                          : <span style={{ fontSize: 11, fontWeight: 800, color: isActive ? '#fff' : '#8b5e3c' }}>{t.step}</span>
+                          ? <Check size={13} color="#fff" strokeWidth={3} />
+                          : <span style={{ fontSize: 12, fontWeight: 800, color: isActive ? '#fff' : '#a89585' }}>{t.step}</span>
                         }
                       </div>
                       <span style={{
-                        fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em',
+                        fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em',
                         color: isActive ? '#b53a2e' : isDone ? '#c9922e' : '#c5b4a6',
                       }}>
                         {t.label}
                       </span>
                     </button>
                     {i < 3 && (
-                      <div className="flex-1 h-px mx-1 mt-[-14px]"
-                        style={{ background: tabIdx < curIdx ? '#c9922e' : '#e2d5c5', maxWidth: 28 }} />
+                      <div className="flex-1 h-0.5 mx-1 mt-[-18px] rounded-full transition-colors"
+                        style={{ background: tabIdx < curIdx ? 'linear-gradient(90deg,#c9922e,#e8b64a)' : '#e2d5c5', maxWidth: 32 }} />
                     )}
                   </React.Fragment>
                 );
@@ -683,42 +739,6 @@ function GiftModalContent({ onClose }: { onClose: () => void }) {
                 );
               })}
             </div>
-          </div>
-
-          {/* Mobile status bar — replaces the oversized scaled box */}
-          <div className="md:hidden shrink-0 px-5 py-3 border-b border-[#e2d5c5] flex items-center gap-3"
-            style={{ background: totalJars > 0 ? 'rgba(181,58,46,0.04)' : '#fdf8f3' }}>
-            {/* Mini jar count pill */}
-            <div className="flex items-center gap-2 flex-1 min-w-0">
-              <span style={{ fontSize: 18 }}>🎁</span>
-              <div className="min-w-0">
-                <p style={{ fontSize: 12, fontWeight: 700, color: totalJars > 0 ? '#b53a2e' : '#c5b4a6' }}>
-                  {totalJars > 0
-                    ? `${totalJars} jar${totalJars !== 1 ? 's' : ''} in the box`
-                    : tab === 'jars' ? 'Box is empty — add jars below' : 'Box sealed'}
-                </p>
-                {totalJars > 0 && (
-                  <p style={{ fontSize: 11, color: '#8b5e3c' }}>₹{totalAmount.toLocaleString('en-IN')} total</p>
-                )}
-              </div>
-            </div>
-            {/* Mini jar image strip */}
-            {jarsInBox.length > 0 && (
-              <div className="flex items-center -space-x-2 shrink-0">
-                {jarsInBox.slice(0, 4).map((jar, i) => (
-                  <div key={jar.instanceId} className="w-8 h-8 rounded-lg border-2 border-white bg-[#fdf8f3] flex items-center justify-center overflow-hidden"
-                    style={{ zIndex: 10 - i }}>
-                    <img src={jar.image} alt={jar.name} className="w-full h-full object-contain" />
-                  </div>
-                ))}
-                {jarsInBox.length > 4 && (
-                  <div className="w-8 h-8 rounded-lg border-2 border-white bg-[#b53a2e] flex items-center justify-center"
-                    style={{ zIndex: 0 }}>
-                    <span style={{ fontSize: 9, fontWeight: 800, color: '#fff' }}>+{jarsInBox.length - 4}</span>
-                  </div>
-                )}
-              </div>
-            )}
           </div>
 
           {/* Tab content */}
