@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 import { motion } from 'framer-motion';
 import prawnImg from '@/assets/prawn.png';
 import fishImg from '@/assets/fish.png';
+import chickenLegImg from '@/assets/chicken-leg.png';
 
 function MangoCubeSVG({ size, opacity }: { size: number; opacity: number }) {
   return (
@@ -50,7 +51,7 @@ function MustardSeedSVG({ size, opacity }: { size: number; opacity: number }) {
 function rnd(min: number, max: number) { return Math.random() * (max - min) + min; }
 function coin() { return Math.random() > 0.5 ? 1 : -1; }
 
-type PType = 'prawn' | 'fish' | 'mango-cube' | 'star-anise' | 'mustard';
+type PType = 'prawn' | 'fish' | 'chicken-leg' | 'mango-cube' | 'star-anise' | 'mustard';
 
 interface Particle {
   id: number;
@@ -94,6 +95,11 @@ function buildParticles(): Particle[] {
   add('fish', 4,
     () => rnd(90, 120),
     () => ({ duration: rnd(22, 38), opacity: rnd(0.5, 0.72), driftX: rnd(30, 70) * coin(), delay: rnd(0, 10) }),
+  );
+  // 🍗 Chicken leg — real photo, tumbling
+  add('chicken-leg', 4,
+    () => rnd(65, 95),
+    () => ({ duration: rnd(16, 28), opacity: rnd(0.55, 0.75), delay: rnd(0, 12), rotEnd: rnd(200, 380) * coin() }),
   );
   // ⭐ Star anise — medium, spinning
   add('star-anise', 6,
@@ -148,6 +154,14 @@ export default function AmbientEffects() {
           {p.type === 'fish' && (
             <img
               src={fishImg}
+              style={{ width: p.size, height: 'auto', display: 'block' }}
+              alt=""
+              aria-hidden="true"
+            />
+          )}
+          {p.type === 'chicken-leg' && (
+            <img
+              src={chickenLegImg}
               style={{ width: p.size, height: 'auto', display: 'block' }}
               alt=""
               aria-hidden="true"
