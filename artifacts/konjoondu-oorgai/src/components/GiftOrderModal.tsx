@@ -593,70 +593,136 @@ function GiftModalContent({ onClose }: { onClose: () => void }) {
           style={{ boxShadow: '-20px 0 60px rgba(0,0,0,0.4)' }}>
 
           {/* Header */}
-          <div className="px-7 pt-6 pb-4 border-b border-[#e2d5c5] shrink-0 flex items-start justify-between">
-            <div>
-              <h1 style={{ fontFamily: 'Georgia, serif', fontSize: 22, fontWeight: 700, color: '#1a0800', marginBottom: 2 }}>
+          <div className="px-5 md:px-7 pt-4 md:pt-6 pb-3 md:pb-4 border-b border-[#e2d5c5] shrink-0 flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <h1 style={{ fontFamily: 'Georgia, serif', fontSize: 20, fontWeight: 700, color: '#1a0800', marginBottom: 1, lineHeight: 1.2 }}>
                 Curate Your Gift 🎁
               </h1>
-              <p style={{ fontSize: 12, color: '#8b5e3c' }}>Handcrafted coastal flavors, packed with love.</p>
+              <p className="hidden md:block" style={{ fontSize: 12, color: '#8b5e3c' }}>Handcrafted coastal flavors, packed with love.</p>
             </div>
             {/* Mobile close */}
-            <button onClick={onClose} className="md:hidden mt-0.5 w-8 h-8 rounded-full flex items-center justify-center"
+            <button onClick={onClose} className="md:hidden shrink-0 w-9 h-9 rounded-full flex items-center justify-center"
               style={{ background: 'rgba(181,58,46,0.08)', color: '#b53a2e' }}>
-              <X size={15} />
+              <X size={16} />
             </button>
           </div>
 
-          {/* Tabs */}
-          <div className="flex px-7 border-b border-[#e2d5c5] shrink-0 gap-1">
-            {([
-              { id: 'jars', label: '1. Jars' },
-              { id: 'letter', label: '2. Letter' },
-              { id: 'delivery', label: '3. Delivery' },
-              { id: 'review', label: '4. Review' },
-            ] as { id: Tab; label: string }[]).map(t => {
-              const tabIdx = TAB_ORDER.indexOf(t.id);
-              const curIdx = TAB_ORDER.indexOf(tab);
-              const isDone = tabIdx < curIdx;
-              const isActive = t.id === tab;
-              return (
-                <button
-                  key={t.id}
-                  onClick={() => {
-                    // Only allow going back, or forward if current tab validates
-                    if (tabIdx < curIdx) setTab(t.id);
-                  }}
-                  className="pb-3 pt-4 px-2 text-[10px] font-bold uppercase tracking-wider relative transition-colors"
-                  style={{ color: isActive ? '#b53a2e' : isDone ? '#c9922e' : '#c5b4a6', cursor: tabIdx <= curIdx ? 'pointer' : 'default' }}
-                >
-                  {isDone && <Check size={9} className="inline mr-1 -mt-0.5" strokeWidth={3} />}
-                  {t.label}
-                  {isActive && (
-                    <motion.div layoutId="giftActiveTab" className="absolute bottom-0 left-0 right-0 h-0.5 rounded-full bg-[#b53a2e]" />
-                  )}
-                </button>
-              );
-            })}
-          </div>
-
-          {/* Mobile box preview */}
-          <div className="md:hidden flex justify-center py-5 bg-[#1a0800] border-b border-[#b53a2e]/20 shrink-0">
-            <div style={{ transform: 'scale(0.72)', transformOrigin: 'top center', marginBottom: -60 }}>
-              <div className="relative">
-                <GiftBox3D
-                    jars={jarsInBox}
-                    totalJars={totalJars}
-                    tab={tab}
-                    senderName={sender.name}
-                    recipientName={recipient.name}
-                    message={message}
-                  />
-              </div>
+          {/* Tabs — stepper style on mobile, text tabs on desktop */}
+          <div className="shrink-0 border-b border-[#e2d5c5]">
+            {/* Mobile stepper */}
+            <div className="flex md:hidden items-center px-4 py-3 gap-0">
+              {([
+                { id: 'jars',     label: 'Jars',     step: 1 },
+                { id: 'letter',   label: 'Letter',   step: 2 },
+                { id: 'delivery', label: 'Delivery', step: 3 },
+                { id: 'review',   label: 'Review',   step: 4 },
+              ] as { id: Tab; label: string; step: number }[]).map((t, i) => {
+                const tabIdx = TAB_ORDER.indexOf(t.id);
+                const curIdx = TAB_ORDER.indexOf(tab);
+                const isDone = tabIdx < curIdx;
+                const isActive = t.id === tab;
+                return (
+                  <React.Fragment key={t.id}>
+                    <button
+                      onClick={() => { if (tabIdx < curIdx) setTab(t.id); }}
+                      className="flex flex-col items-center gap-1 flex-1"
+                      style={{ cursor: tabIdx <= curIdx ? 'pointer' : 'default' }}
+                    >
+                      <div
+                        className="w-7 h-7 rounded-full flex items-center justify-center transition-all"
+                        style={{
+                          background: isDone ? '#c9922e' : isActive ? '#b53a2e' : '#e2d5c5',
+                          boxShadow: isActive ? '0 0 0 3px rgba(181,58,46,0.15)' : 'none',
+                        }}
+                      >
+                        {isDone
+                          ? <Check size={12} color="#fff" strokeWidth={3} />
+                          : <span style={{ fontSize: 11, fontWeight: 800, color: isActive ? '#fff' : '#8b5e3c' }}>{t.step}</span>
+                        }
+                      </div>
+                      <span style={{
+                        fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em',
+                        color: isActive ? '#b53a2e' : isDone ? '#c9922e' : '#c5b4a6',
+                      }}>
+                        {t.label}
+                      </span>
+                    </button>
+                    {i < 3 && (
+                      <div className="flex-1 h-px mx-1 mt-[-14px]"
+                        style={{ background: tabIdx < curIdx ? '#c9922e' : '#e2d5c5', maxWidth: 28 }} />
+                    )}
+                  </React.Fragment>
+                );
+              })}
+            </div>
+            {/* Desktop text tabs */}
+            <div className="hidden md:flex px-7 gap-1">
+              {([
+                { id: 'jars', label: '1. Jars' },
+                { id: 'letter', label: '2. Letter' },
+                { id: 'delivery', label: '3. Delivery' },
+                { id: 'review', label: '4. Review' },
+              ] as { id: Tab; label: string }[]).map(t => {
+                const tabIdx = TAB_ORDER.indexOf(t.id);
+                const curIdx = TAB_ORDER.indexOf(tab);
+                const isDone = tabIdx < curIdx;
+                const isActive = t.id === tab;
+                return (
+                  <button
+                    key={t.id}
+                    onClick={() => { if (tabIdx < curIdx) setTab(t.id); }}
+                    className="pb-3 pt-4 px-2 text-[10px] font-bold uppercase tracking-wider relative transition-colors"
+                    style={{ color: isActive ? '#b53a2e' : isDone ? '#c9922e' : '#c5b4a6', cursor: tabIdx <= curIdx ? 'pointer' : 'default' }}
+                  >
+                    {isDone && <Check size={9} className="inline mr-1 -mt-0.5" strokeWidth={3} />}
+                    {t.label}
+                    {isActive && (
+                      <motion.div layoutId="giftActiveTab" className="absolute bottom-0 left-0 right-0 h-0.5 rounded-full bg-[#b53a2e]" />
+                    )}
+                  </button>
+                );
+              })}
             </div>
           </div>
 
+          {/* Mobile status bar — replaces the oversized scaled box */}
+          <div className="md:hidden shrink-0 px-5 py-3 border-b border-[#e2d5c5] flex items-center gap-3"
+            style={{ background: totalJars > 0 ? 'rgba(181,58,46,0.04)' : '#fdf8f3' }}>
+            {/* Mini jar count pill */}
+            <div className="flex items-center gap-2 flex-1 min-w-0">
+              <span style={{ fontSize: 18 }}>🎁</span>
+              <div className="min-w-0">
+                <p style={{ fontSize: 12, fontWeight: 700, color: totalJars > 0 ? '#b53a2e' : '#c5b4a6' }}>
+                  {totalJars > 0
+                    ? `${totalJars} jar${totalJars !== 1 ? 's' : ''} in the box`
+                    : tab === 'jars' ? 'Box is empty — add jars below' : 'Box sealed'}
+                </p>
+                {totalJars > 0 && (
+                  <p style={{ fontSize: 11, color: '#8b5e3c' }}>₹{totalAmount.toLocaleString('en-IN')} total</p>
+                )}
+              </div>
+            </div>
+            {/* Mini jar image strip */}
+            {jarsInBox.length > 0 && (
+              <div className="flex items-center -space-x-2 shrink-0">
+                {jarsInBox.slice(0, 4).map((jar, i) => (
+                  <div key={jar.instanceId} className="w-8 h-8 rounded-lg border-2 border-white bg-[#fdf8f3] flex items-center justify-center overflow-hidden"
+                    style={{ zIndex: 10 - i }}>
+                    <img src={jar.image} alt={jar.name} className="w-full h-full object-contain" />
+                  </div>
+                ))}
+                {jarsInBox.length > 4 && (
+                  <div className="w-8 h-8 rounded-lg border-2 border-white bg-[#b53a2e] flex items-center justify-center"
+                    style={{ zIndex: 0 }}>
+                    <span style={{ fontSize: 9, fontWeight: 800, color: '#fff' }}>+{jarsInBox.length - 4}</span>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
           {/* Tab content */}
-          <div className="flex-1 overflow-y-auto gift-hide-scroll p-7 min-h-0">
+          <div className="flex-1 overflow-y-auto gift-hide-scroll p-4 md:p-7 min-h-0">
             <AnimatePresence mode="wait">
               <motion.div
                 key={tab}
