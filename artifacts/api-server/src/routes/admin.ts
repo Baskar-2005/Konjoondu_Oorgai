@@ -1,5 +1,6 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import { customersCol, ordersCol, reviewsCol, inventoryCol } from "../lib/firestoreDb";
+import { sanitizeString, LIMITS } from "../lib/validate";
 
 const router: IRouter = Router();
 
@@ -21,7 +22,6 @@ router.get("/admin/customers", async (req, res) => {
       ordersCol.findAll(),
     ]);
 
-    // Build per-phone order stats from orders
     const statsMap = new Map<string, { orders: number; lifetime: number; lastOrder: Date | null }>();
     for (const o of orders) {
       const phone = o.customerPhone;
@@ -50,8 +50,8 @@ router.get("/admin/customers", async (req, res) => {
     });
 
     res.json({ success: true, customers: result, total: result.length });
-  } catch (err) {
-    res.status(500).json({ success: false, message: String(err) });
+  } catch {
+    res.status(500).json({ success: false, message: "Failed to fetch customers." });
   }
 });
 
@@ -60,8 +60,6 @@ router.get("/admin/reviews", async (req, res) => {
   if (!requireAdmin(req, res)) return;
   try {
     const reviews = await reviewsCol.findAllAdmin();
-
-    // Collect unique customerIds and fetch names in one batch
     const customerIds = [...new Set(reviews.map((r) => r.customerId).filter(Boolean))];
     const customerDocs = await Promise.all(customerIds.map((id) => customersCol.findById(id)));
     const nameMap = new Map<string, string>();
@@ -69,15 +67,10 @@ router.get("/admin/reviews", async (req, res) => {
       const doc = customerDocs[i];
       if (doc) nameMap.set(customerIds[i], doc.name);
     }
-
-    const result = reviews.map((r) => ({
-      ...r,
-      customerName: nameMap.get(r.customerId) ?? "Unknown",
-    }));
-
+    const result = reviews.map((r) => ({ ...r, customerName: nameMap.get(r.customerId) ?? "Unknown" }));
     res.json({ success: true, reviews: result, total: result.length });
-  } catch (err) {
-    res.status(500).json({ success: false, message: String(err) });
+  } catch {
+    res.status(500).json({ success: false, message: "Failed to fetch reviews." });
   }
 });
 
@@ -87,28 +80,33 @@ router.patch("/admin/reviews/:customerId/:reviewId", async (req, res) => {
   const { customerId, reviewId } = req.params;
   const { status, adminReply } = req.body as { status?: string; adminReply?: string };
   const updates: { status?: string; adminReply?: string } = {};
-  if (status) updates.status = status;
-  if (adminReply !== undefined) updates.adminReply = adminReply;
+  const ALLOWED_STATUSES = ["pending", "approved", "rejected"];
+  if (status) {
+    if (!ALLOWED_STATUSES.includes(status)) {
+      res.status(400).json({ success: false, message: "Invalid status." }); return;
+    }
+    updates.status = status;
+  }
+  if (adminReply !== undefined) updates.adminReply = sanitizeString(adminReply, 1000);
   if (!Object.keys(updates).length) {
-    res.status(400).json({ success: false, message: "Nothing to update." });
-    return;
+    res.status(400).json({ success: false, message: "Nothing to update." }); return;
   }
   try {
     await reviewsCol.adminUpdate(customerId, reviewId, updates);
     res.json({ success: true });
-  } catch (err) {
-    res.status(500).json({ success: false, message: String(err) });
+  } catch {
+    res.status(500).json({ success: false, message: "Failed to update review." });
   }
 });
 
-// GET /api/admin/inventory — all inventory items (auto-seeds if empty)
+// GET /api/admin/inventory — all inventory items
 router.get("/admin/inventory", async (req, res) => {
   if (!requireAdmin(req, res)) return;
   try {
     const inventory = await inventoryCol.findAll();
     res.json({ success: true, inventory });
-  } catch (err) {
-    res.status(500).json({ success: false, message: String(err) });
+  } catch {
+    res.status(500).json({ success: false, message: "Failed to fetch inventory." });
   }
 });
 
@@ -118,25 +116,24 @@ router.post("/admin/inventory", async (req, res) => {
   try {
     const body = req.body as Record<string, unknown>;
     const item = {
-      productName: String(body.productName ?? ""),
-      sku: String(body.sku ?? ""),
-      size: String(body.size ?? ""),
-      batch: String(body.batch ?? ""),
-      stock: Number(body.stock ?? 0),
-      threshold: Number(body.threshold ?? 10),
-      incoming: Number(body.incoming ?? 0),
-      expiry: String(body.expiry ?? ""),
-      supplier: String(body.supplier ?? ""),
-      cost: Number(body.cost ?? 0),
+      productName: sanitizeString(body.productName, LIMITS.PRODUCT_NAME),
+      sku: sanitizeString(body.sku, 50),
+      size: sanitizeString(body.size, 50),
+      batch: sanitizeString(body.batch, 100),
+      stock: Math.max(0, Math.round(Number(body.stock ?? 0))),
+      threshold: Math.max(0, Math.round(Number(body.threshold ?? 10))),
+      incoming: Math.max(0, Math.round(Number(body.incoming ?? 0))),
+      expiry: sanitizeString(body.expiry, 20),
+      supplier: sanitizeString(body.supplier, 200),
+      cost: Math.max(0, Number(body.cost ?? 0)),
     };
     if (!item.productName) {
-      res.status(400).json({ success: false, message: "productName is required." });
-      return;
+      res.status(400).json({ success: false, message: "productName is required." }); return;
     }
     const id = await inventoryCol.create(item);
     res.json({ success: true, id });
-  } catch (err) {
-    res.status(500).json({ success: false, message: String(err) });
+  } catch {
+    res.status(500).json({ success: false, message: "Failed to create inventory item." });
   }
 });
 
@@ -149,27 +146,26 @@ router.patch("/admin/inventory/:id", async (req, res) => {
     const updates: Record<string, unknown> = {};
     const numFields = ["stock", "threshold", "incoming", "cost"];
     const strFields = ["productName", "sku", "size", "batch", "expiry", "supplier"];
-    for (const f of numFields) if (f in body) updates[f] = Number(body[f]);
-    for (const f of strFields) if (f in body) updates[f] = String(body[f]);
+    for (const f of numFields) if (f in body) updates[f] = Math.max(0, Number(body[f]));
+    for (const f of strFields) if (f in body) updates[f] = sanitizeString(body[f], 200);
     if (!Object.keys(updates).length) {
-      res.status(400).json({ success: false, message: "Nothing to update." });
-      return;
+      res.status(400).json({ success: false, message: "Nothing to update." }); return;
     }
     await inventoryCol.update(id, updates as Parameters<typeof inventoryCol.update>[1]);
     res.json({ success: true });
-  } catch (err) {
-    res.status(500).json({ success: false, message: String(err) });
+  } catch {
+    res.status(500).json({ success: false, message: "Failed to update inventory." });
   }
 });
 
-// POST /api/admin/inventory/sync — upsert all canonical SKUs (adds missing, keeps existing stock)
+// POST /api/admin/inventory/sync — upsert all canonical SKUs
 router.post("/admin/inventory/sync", async (req, res) => {
   if (!requireAdmin(req, res)) return;
   try {
     const result = await inventoryCol.syncAll();
     res.json({ success: true, ...result });
-  } catch (err) {
-    res.status(500).json({ success: false, message: String(err) });
+  } catch {
+    res.status(500).json({ success: false, message: "Failed to sync inventory." });
   }
 });
 
@@ -180,24 +176,23 @@ router.delete("/admin/inventory/:id", async (req, res) => {
   try {
     await inventoryCol.delete(id);
     res.json({ success: true });
-  } catch (err) {
-    res.status(500).json({ success: false, message: String(err) });
+  } catch {
+    res.status(500).json({ success: false, message: "Failed to delete inventory item." });
   }
 });
 
-// GET /products/stock — public endpoint: returns stock levels per product/size (no auth)
+// GET /products/stock — public endpoint: returns stock levels per product/size
 router.get("/products/stock", async (req, res) => {
   try {
     const inventory = await inventoryCol.findAll();
     const stock = inventory.map((i) => ({
       productName: i.productName,
-      // size field is often empty; fall back to extracting it from the SKU (e.g. "P4-250g" → "250g")
       size: i.size || i.sku.replace(/^P\d+-/, ""),
       stock: i.stock,
     }));
     res.json({ success: true, stock });
-  } catch (err) {
-    res.status(500).json({ success: false, message: String(err) });
+  } catch {
+    res.status(500).json({ success: false, message: "Failed to fetch stock." });
   }
 });
 

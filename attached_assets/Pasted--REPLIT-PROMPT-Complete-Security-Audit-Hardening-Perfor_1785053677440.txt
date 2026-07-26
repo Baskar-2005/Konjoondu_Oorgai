@@ -1,0 +1,308 @@
+🔒 REPLIT PROMPT — Complete Security Audit & Hardening
+
+Perform a complete production-grade security audit of the entire Konjoondu Oorgai website.
+
+Do NOT redesign the UI or change the user experience.
+
+Your goal is to identify, explain, and fix every possible security vulnerability before production deployment.
+
+1. Input Validation
+
+Check every user input across the website.
+
+Including:
+
+Login
+Signup
+Contact Form
+Newsletter
+Search
+Product Review
+Address Forms
+Checkout
+Coupon Code
+Profile Update
+Password Reset
+
+Requirements:
+
+Trim whitespace
+Validate input types
+Prevent empty values
+Prevent extremely long inputs
+Validate email format
+Validate phone numbers
+Validate pin codes
+Validate passwords
+Reject malicious characters when appropriate
+
+Never trust client-side validation alone.
+
+All validation must also happen on the server.
+
+2. SQL Injection
+
+Check every database query.
+
+Ensure:
+
+Parameterized queries only
+No raw SQL string concatenation
+No unsafe query building
+Prevent SQL Injection completely
+3. XSS Protection
+
+Check for Cross Site Scripting.
+
+Prevent:
+
+Stored XSS
+Reflected XSS
+DOM XSS
+
+Escape all user-generated content before rendering.
+
+Sanitize HTML properly.
+
+Never render unsanitized user input.
+
+4. CSRF Protection
+
+Verify all authenticated actions are protected.
+
+Including:
+
+Login
+Logout
+Checkout
+Order Placement
+Address Update
+Profile Update
+Password Change
+
+Implement CSRF protection if missing.
+
+5. Authentication Audit
+
+Verify:
+
+Password hashing
+Secure login flow
+Secure logout
+Session expiration
+Refresh tokens
+JWT verification
+Protected routes
+Unauthorized access prevention
+
+Ensure users cannot access another user's data.
+
+6. Authorization Audit
+
+Verify role-based access.
+
+Customer must NOT access:
+
+Admin dashboard
+Admin APIs
+Order management
+Product management
+
+Admin routes must be protected.
+
+7. API Security
+
+Audit every API endpoint.
+
+Check:
+
+Authentication
+Authorization
+Input validation
+Rate limiting
+Proper HTTP status codes
+Sensitive data leakage
+
+Reject invalid requests gracefully.
+
+8. Environment Variables
+
+Ensure:
+
+No API keys in frontend
+No secrets in Git
+No hardcoded passwords
+No exposed Supabase keys beyond the intended public anon key
+No exposed private keys
+
+All secrets must use environment variables.
+
+9. Supabase Security
+
+Audit:
+
+RLS (Row Level Security)
+Policies
+Storage permissions
+Bucket access
+Auth configuration
+
+Ensure users only access their own data.
+
+10. File Upload Security
+
+If uploads exist:
+
+Check:
+
+MIME type validation
+File extension validation
+File size limit
+Virus-safe handling
+Random filenames
+Prevent executable uploads
+11. CORS
+
+Verify CORS configuration.
+
+Allow only required origins.
+
+Block unknown origins.
+
+12. Security Headers
+
+Verify:
+
+Content-Security-Policy
+X-Frame-Options
+X-Content-Type-Options
+Referrer-Policy
+Permissions-Policy
+Strict-Transport-Security
+
+Add missing headers.
+
+13. HTTPS
+
+Verify:
+
+HTTPS enforced
+Secure cookies
+SameSite cookies
+HttpOnly cookies
+14. Rate Limiting
+
+Protect:
+
+Login
+Signup
+OTP
+Contact Form
+Password Reset
+Checkout
+Search API
+
+Prevent brute-force attacks.
+
+15. Bot Protection
+
+Protect forms from spam.
+
+Recommend:
+
+CAPTCHA if necessary
+Honeypot fields
+Request throttling
+16. Sensitive Data Exposure
+
+Ensure:
+
+Passwords never logged
+Tokens never exposed
+Stack traces hidden
+Internal errors hidden
+Database schema not exposed
+17. Dependency Audit
+
+Check all npm packages.
+
+Identify:
+
+Vulnerable packages
+Deprecated packages
+Unsafe dependencies
+
+Upgrade safely.
+
+18. Secure Error Handling
+
+Ensure:
+
+Users see friendly error messages.
+
+Developers receive detailed logs only in development.
+
+19. Browser Security
+
+Prevent:
+
+Clickjacking
+MIME sniffing
+Open redirects
+Mixed content
+Insecure cookies
+20. Performance Security
+
+Check:
+
+Memory leaks
+Infinite loops
+Heavy queries
+Unoptimized images
+Large bundles
+21. Admin Dashboard Audit
+
+Ensure:
+
+Admin pages require authentication
+Admin APIs protected
+Admin actions logged
+Customers cannot access admin routes
+22. Payment Security
+
+If payment exists:
+
+Verify:
+
+Secure payment flow
+No card details stored
+Secure callback verification
+Replay attack prevention
+23. Logging
+
+Ensure:
+
+Security events logged
+Failed login attempts logged
+Admin actions logged
+Sensitive data excluded
+24. Production Build
+
+Verify:
+
+No debug code
+No console.log of secrets
+No test endpoints
+No unused routes
+No exposed source maps
+25. Final Security Report
+
+Generate a complete report containing:
+
+All vulnerabilities found
+Severity (Critical / High / Medium / Low)
+File locations
+Recommended fixes
+Fixes implemented
+Remaining risks
+Overall Security Score (/100)

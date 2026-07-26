@@ -3,6 +3,7 @@ import { randomUUID } from "crypto";
 import nodemailer from "nodemailer";
 import { ordersCol, issuesCol, customersCol, notificationsCol, inventoryCol } from "../lib/firestoreDb";
 import { getCustomerFromToken } from "./auth";
+import { sanitizeString, isValidPhone, isValidEmail, normalizePhone, LIMITS } from "../lib/validate";
 import { getMonitorConfig, setMonitorThreshold, getAlertLog } from "../lib/bottleneckMonitor";
 
 const router: IRouter = Router();
@@ -366,6 +367,37 @@ router.post("/orders", async (req, res) => {
     return;
   }
 
+  // ── Input validation ────────────────────────────────────────────────────────
+  const cleanCustomerName = sanitizeString(customer.name, LIMITS.NAME);
+  const cleanCustomerPhone = normalizePhone(String(customer.phone));
+  const cleanCustomerAddress = sanitizeString(customer.address, 500);
+  const cleanCustomerEmail = customer.email ? sanitizeString(customer.email, LIMITS.EMAIL).toLowerCase() : "";
+
+  if (!cleanCustomerName || !cleanCustomerPhone || !cleanCustomerAddress) {
+    res.status(400).json({ success: false, message: "Missing required fields." }); return;
+  }
+  if (!isValidPhone(cleanCustomerPhone)) {
+    res.status(400).json({ success: false, message: "Invalid phone number format." }); return;
+  }
+  if (cleanCustomerEmail && !isValidEmail(cleanCustomerEmail)) {
+    res.status(400).json({ success: false, message: "Invalid email format." }); return;
+  }
+  if (!Array.isArray(items) || items.length === 0 || items.length > 50) {
+    res.status(400).json({ success: false, message: "Order must contain 1–50 items." }); return;
+  }
+  for (const item of items) {
+    if (!item.productName || !item.size || typeof item.price !== "number" || item.price < 0 || typeof item.quantity !== "number" || item.quantity < 1 || item.quantity > 100) {
+      res.status(400).json({ success: false, message: "Invalid item data." }); return;
+    }
+  }
+  const numTotal = Number(totalAmount);
+  if (isNaN(numTotal) || numTotal <= 0 || numTotal > 100_000) {
+    res.status(400).json({ success: false, message: "Invalid order amount." }); return;
+  }
+  if (paymentId !== undefined && (typeof paymentId !== "string" || paymentId.length > 100)) {
+    res.status(400).json({ success: false, message: "Invalid payment ID." }); return;
+  }
+
   const id = "KO-" + randomUUID().slice(0, 8).toUpperCase();
   const status = paymentId ? "confirmed" : "pending";
 
@@ -373,21 +405,23 @@ router.post("/orders", async (req, res) => {
     id,
     razorpayOrderId: null,
     razorpayPaymentId: paymentId || null,
-    customerName: customer.name,
-    customerEmail: customer.email || "",
-    customerEmailLower: (customer.email || "").toLowerCase(),
-    customerPhone: customer.phone,
-    shippingAddress: customer.address,
-    totalAmount,
+    customerName: cleanCustomerName,
+    customerEmail: cleanCustomerEmail,
+    customerEmailLower: cleanCustomerEmail.toLowerCase(),
+    customerPhone: cleanCustomerPhone,
+    shippingAddress: cleanCustomerAddress,
+    totalAmount: numTotal,
     status,
     courierName: null,
     trackingId: null,
     estimatedDelivery: null,
-    isGift: isGift ?? false,
-    giftSenderName: giftSender?.name || null,
-    giftSenderPhone: giftSender?.phone || null,
-    giftSenderEmail: giftSender?.email || null,
-    giftMessage: giftMessage || null,
+    trackingAvailable: false,
+    shippedAt: null,
+    isGift: isGift === true,
+    giftSenderName: giftSender?.name ? sanitizeString(giftSender.name, LIMITS.NAME) : null,
+    giftSenderPhone: giftSender?.phone ? normalizePhone(String(giftSender.phone)) : null,
+    giftSenderEmail: giftSender?.email ? sanitizeString(giftSender.email, LIMITS.EMAIL).toLowerCase() : null,
+    giftMessage: giftMessage ? sanitizeString(giftMessage, 500) : null,
   });
 
   await ordersCol.addItems(
@@ -426,13 +460,31 @@ router.post("/orders", async (req, res) => {
 });
 
 // GET /api/orders
+// Requires admin token for full list, or customer token for own orders (verified by email/phone).
 router.get("/orders", async (req, res) => {
+  const adminToken = req.headers["x-admin-token"] as string | undefined;
+  const isAdmin = adminToken && adminToken === process.env.ADMIN_SECRET;
+
   const { customer_email, customer_phone } = req.query as {
     customer_email?: string;
     customer_phone?: string;
   };
 
   if (customer_email || customer_phone) {
+    // Must be admin OR authenticated customer whose email/phone matches the query
+    if (!isAdmin) {
+      const customerId = await getCustomerFromToken(req, res);
+      if (!customerId) return; // getCustomerFromToken already sent 401
+      const customer = await customersCol.findById(customerId);
+      if (!customer) { res.status(404).json({ success: false, message: "Customer not found." }); return; }
+      // Verify the query matches this customer's own data
+      const emailMatch = customer_email && customer.email.toLowerCase() === customer_email.toLowerCase();
+      const phoneMatch = customer_phone && customer.phone === normalizePhone(customer_phone);
+      if (!emailMatch && !phoneMatch) {
+        res.status(403).json({ success: false, message: "You can only view your own orders." }); return;
+      }
+    }
+
     const [byEmail, byPhone] = await Promise.all([
       customer_email ? ordersCol.findByEmail(customer_email) : Promise.resolve([]),
       customer_phone ? ordersCol.findByPhone(customer_phone) : Promise.resolve([]),
@@ -455,10 +507,25 @@ router.get("/orders", async (req, res) => {
   res.json({ success: true, orders: allOrders, total: allOrders.length });
 });
 
-// GET /api/orders/:id
+// GET /api/orders/:id — requires admin or the order's owner
 router.get("/orders/:id", async (req, res) => {
+  const adminToken = req.headers["x-admin-token"] as string | undefined;
+  const isAdmin = adminToken && adminToken === process.env.ADMIN_SECRET;
+
   const order = await ordersCol.findById(req.params.id);
   if (!order) { res.status(404).json({ success: false, message: "Order not found." }); return; }
+
+  if (!isAdmin) {
+    // Customer must be authenticated and own the order
+    const customerId = await getCustomerFromToken(req, res);
+    if (!customerId) return;
+    const customer = await customersCol.findById(customerId);
+    if (!customer) { res.status(403).json({ success: false, message: "Forbidden." }); return; }
+    const ownsOrder = (customer.phone && order.customerPhone === customer.phone) ||
+                      (customer.email && order.customerEmailLower === customer.email.toLowerCase());
+    if (!ownsOrder) { res.status(403).json({ success: false, message: "Forbidden." }); return; }
+  }
+
   res.json({ success: true, order: await formatOrder(order) });
 });
 
@@ -678,6 +745,11 @@ router.post("/orders/:id/issues", async (req, res) => {
     res.status(400).json({ success: false, message: "type and description are required." });
     return;
   }
+  const cleanType = sanitizeString(type, 50);
+  const cleanDescription = sanitizeString(description, LIMITS.ISSUE_DESC);
+  if (!cleanType || !cleanDescription) {
+    res.status(400).json({ success: false, message: "type and description are required." }); return;
+  }
   const order = await ordersCol.findById(req.params.id);
   if (!order) { res.status(404).json({ success: false, message: "Order not found." }); return; }
   const customer = await customersCol.findById(customerId);
@@ -685,7 +757,7 @@ router.post("/orders/:id/issues", async (req, res) => {
     res.status(403).json({ success: false, message: "You do not own this order." });
     return;
   }
-  const issue = await issuesCol.create(req.params.id, { type, description });
+  const issue = await issuesCol.create(req.params.id, { type: cleanType, description: cleanDescription });
   res.status(201).json({ success: true, issue });
 });
 
@@ -726,16 +798,28 @@ router.delete("/orders/:id/shipment", async (req, res) => {
   res.json({ success: true, order: await formatOrder(updated) });
 });
 
-// ─── Public order tracking (no auth) ─────────────────────────────────────────
+// ─── Public order tracking (no auth) — PII redacted ──────────────────────────
 router.get("/track/:orderId", async (req, res) => {
   try {
-    const order = await ordersCol.findById(req.params.orderId);
+    // Validate orderId format to avoid unnecessary DB lookups
+    const { orderId } = req.params;
+    if (!/^[A-Z0-9-]{1,30}$/.test(orderId)) {
+      res.status(404).json({ success: false, message: "Order not found. Please check the order ID and try again." });
+      return;
+    }
+
+    const order = await ordersCol.findById(orderId);
     if (!order) {
       res.status(404).json({ success: false, message: "Order not found. Please check the order ID and try again." });
       return;
     }
     const items = await ordersCol.getItems(order.id);
     const info  = STATUS_INFO[order.status] ?? { label: order.status, description: `Status: ${order.status}` };
+
+    // Mask phone: show only last 4 digits (e.g. ******6789)
+    const phone = String(order.customerPhone || "");
+    const maskedPhone = phone.length >= 4 ? "****" + phone.slice(-4) : "****";
+
     res.json({
       success: true,
       order: {
@@ -745,8 +829,8 @@ router.get("/track/:orderId", async (req, res) => {
         statusDescription: info.description,
         customer: {
           name:    order.customerName,
-          phone:   order.customerPhone,
-          email:   order.customerEmail || undefined,
+          // Phone and email are masked/omitted to protect PII on the public tracking page
+          phone:   maskedPhone,
           address: order.shippingAddress,
         },
         items: items.map(i => ({
@@ -756,7 +840,6 @@ router.get("/track/:orderId", async (req, res) => {
           price:       i.price,
         })),
         totalAmount:      order.totalAmount,
-        paymentId:        order.razorpayPaymentId || undefined,
         createdAt:        order.createdAt.toISOString(),
         trackingAvailable: order.trackingAvailable ?? false,
         courierPartner:   order.courierName || undefined,
@@ -764,8 +847,7 @@ router.get("/track/:orderId", async (req, res) => {
         shippedAt:        order.shippedAt?.toISOString() || undefined,
       },
     });
-  } catch (err) {
-    console.error("Track order error:", err);
+  } catch {
     res.status(500).json({ success: false, message: "Internal server error." });
   }
 });

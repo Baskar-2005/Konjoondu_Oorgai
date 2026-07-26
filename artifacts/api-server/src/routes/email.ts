@@ -1,7 +1,16 @@
-import { Router, type IRouter } from "express";
+import { Router, type IRouter, type Request, type Response } from "express";
 import nodemailer from "nodemailer";
 
 const router: IRouter = Router();
+
+function requireAdmin(req: Request, res: Response): boolean {
+  const token = req.headers["x-admin-token"];
+  if (!token || token !== process.env.ADMIN_SECRET) {
+    res.status(403).json({ success: false, message: "Forbidden." });
+    return false;
+  }
+  return true;
+}
 
 function getTransporter() {
   if (!process.env.EMAIL_USER || !process.env.EMAIL_APP_PASSWORD) return null;
@@ -14,8 +23,10 @@ function getTransporter() {
   });
 }
 
-// POST /api/email/order-confirmation
+// POST /api/email/order-confirmation — admin only (prevents spam relay abuse)
 router.post("/email/order-confirmation", async (req, res) => {
+  if (!requireAdmin(req, res)) return;
+
   const transporter = getTransporter();
   if (!transporter) {
     res.status(503).json({ success: false, message: "Email service not configured." });
@@ -36,14 +47,22 @@ router.post("/email/order-confirmation", async (req, res) => {
     return;
   }
 
-  const itemRows = items
+  // Escape HTML to prevent XSS in email templates
+  const esc = (s: string) =>
+    String(s)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
+
+  const itemRows = (Array.isArray(items) ? items : [])
     .map(
       (i) => `
       <tr>
-        <td style="padding:8px 12px;border-bottom:1px solid #f0e8df;">${i.productName} (${i.size})</td>
-        <td style="padding:8px 12px;border-bottom:1px solid #f0e8df;text-align:center;">${i.quantity}</td>
-        <td style="padding:8px 12px;border-bottom:1px solid #f0e8df;text-align:right;">₹${(i.price * i.quantity).toLocaleString("en-IN")}</td>
-      </tr>`
+        <td style="padding:8px 12px;border-bottom:1px solid #f0e8df;">${esc(String(i.productName))} (${esc(String(i.size))})</td>
+        <td style="padding:8px 12px;border-bottom:1px solid #f0e8df;text-align:center;">${Number(i.quantity) | 0}</td>
+        <td style="padding:8px 12px;border-bottom:1px solid #f0e8df;text-align:right;">₹${(Number(i.price) * (Number(i.quantity) | 0)).toLocaleString("en-IN")}</td>
+      </tr>`,
     )
     .join("");
 
@@ -58,13 +77,13 @@ router.post("/email/order-confirmation", async (req, res) => {
           <p style="color:rgba(255,249,240,0.75);margin:6px 0 0;font-size:14px;">Order Confirmation</p>
         </div>
         <div style="padding:32px 36px;">
-          <p style="color:#3d2b1f;font-size:16px;margin-top:0;">Dear <strong>${customerName}</strong>,</p>
+          <p style="color:#3d2b1f;font-size:16px;margin-top:0;">Dear <strong>${esc(String(customerName))}</strong>,</p>
           <p style="color:#6b4c38;font-size:14px;line-height:1.6;">
             Thank you for your order! We've received your order and will contact you within 24 hours to arrange delivery.
           </p>
           <div style="background:#fdf8f3;border-radius:12px;padding:16px 20px;margin:20px 0;border:1px solid #f0e8df;">
             <p style="margin:0;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:#8b5e3c;">Order ID</p>
-            <p style="margin:6px 0 0;font-size:20px;font-weight:800;color:#b53a2e;">${orderId}</p>
+            <p style="margin:6px 0 0;font-size:20px;font-weight:800;color:#b53a2e;">${esc(String(orderId))}</p>
           </div>
           <table style="width:100%;border-collapse:collapse;margin:20px 0;">
             <thead>
@@ -78,13 +97,13 @@ router.post("/email/order-confirmation", async (req, res) => {
             <tfoot>
               <tr>
                 <td colspan="2" style="padding:12px;font-weight:800;font-size:15px;color:#3d2b1f;">Total</td>
-                <td style="padding:12px;font-weight:800;font-size:18px;color:#b53a2e;text-align:right;">₹${totalAmount.toLocaleString("en-IN")}</td>
+                <td style="padding:12px;font-weight:800;font-size:18px;color:#b53a2e;text-align:right;">₹${Number(totalAmount).toLocaleString("en-IN")}</td>
               </tr>
             </tfoot>
           </table>
           <div style="background:#fdf8f3;border-radius:12px;padding:16px 20px;margin:20px 0;border:1px solid #f0e8df;">
             <p style="margin:0;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:#8b5e3c;">Delivery Address</p>
-            <p style="margin:6px 0 0;font-size:14px;color:#3d2b1f;line-height:1.5;">${shippingAddress}</p>
+            <p style="margin:6px 0 0;font-size:14px;color:#3d2b1f;line-height:1.5;">${esc(String(shippingAddress))}</p>
           </div>
           <p style="color:#6b4c38;font-size:13px;line-height:1.6;">
             We'll send you an update once your order is shipped. If you have any questions, just reply to this email.
@@ -106,8 +125,7 @@ router.post("/email/order-confirmation", async (req, res) => {
       html,
     });
     res.json({ success: true, message: "Confirmation email sent." });
-  } catch (err) {
-    console.error("[email] Failed to send:", err);
+  } catch {
     res.status(500).json({ success: false, message: "Failed to send email." });
   }
 });
